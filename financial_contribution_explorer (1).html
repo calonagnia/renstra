@@ -1084,27 +1084,18 @@ Listrik,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.,Install 
                 console.error("No CSV content provided to save.");
                 return;
             }
-
-            const token = "1e097ffa81ba8da4acf70c5dae6f2a7a2ba872bf5fd89dc9"; 
-            const encodedFilename = encodeURIComponent(filename);
-            const filePath = `${encodedFilename}`;
-            const url = `/api/contents/${filePath}${token ? '?token=' + token : ''}`;
-            window.latestUpdatedCSV = activeCSVText;
-            
-            const payload = {
-                name: filename,
-                path: `${filename}`,
-                type: "file",
-                format: "text",
-                content: csvContent
-            };
-
+        
+            // Ambil data terbaru untuk disimpan di window state
+            window.latestUpdatedCSV = csvContent;
+        
+            // Payload pesan untuk Streamlit Cloud
             const messagePayload = {
                 type: "SAVE_CSV",
                 filename: filename,
                 data: csvContent
             };
         
+            // Kirim postMessage terlebih dahulu untuk Streamlit
             if (window.parent) {
                 window.parent.postMessage(messagePayload, "*");
             }
@@ -1112,26 +1103,50 @@ Listrik,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.,Install 
                 window.parent.parent.postMessage(messagePayload, "*");
             }
         
-            console.log("Save triggered. PostMessage dispatched successfully.");
-            fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token && { 'Authorization': `token ${token}` })
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(response => {
-                if (response.ok) {
-                    showFeedbackToast(`CSV successfully saved back to ${filename}!`);
-                    console.log(`${filename} saved to Jupyter successfully!`);
-                } else {
-                    throw new Error(`Server returned status: ${response.status}`);
-                }
-            })
-            .catch(error => {
-                console.error("Error saving CSV to Jupyter:", error);
-            });
+            // Cek apakah kita sedang berjalan di lingkungan lokal (Jupyter)
+            const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        
+            if (isLocalhost) {
+                console.log("Mendeteksi lingkungan LOKAL (Jupyter). Menjalankan API Jupyter...");
+                
+                const token = "1e097ffa81ba8da4acf70c5dae6f2a7a2ba872bf5fd89dc9"; 
+                const encodedFilename = encodeURIComponent(filename);
+                
+                // Sesuai dengan struktur Anda di mana file diletakkan langsung di root repositori
+                const filePath = `${encodedFilename}`;
+                const url = `/api/contents/${filePath}${token ? '?token=' + token : ''}`;
+        
+                const payload = {
+                    name: filename,
+                    path: `${filename}`,
+                    type: "file",
+                    format: "text",
+                    content: csvContent
+                };
+        
+                fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `token ${token}` })
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => {
+                    if (response.ok) {
+                        showFeedbackToast(`Lokal: Berhasil menyimpan ${filename} ke Jupyter!`);
+                        console.log(`${filename} saved to local Jupyter successfully!`);
+                    } else {
+                        throw new Error(`Server returned status: ${response.status}`);
+                    }
+                })
+                .catch(error => {
+                    console.error("Gagal menyimpan ke Jupyter Lokal:", error);
+                });
+            } else {
+                console.log("Mendeteksi lingkungan Streamlit Cloud. Mengandalkan postMessage ke Python.");
+                showFeedbackToast(`Mengirim perubahan ${filename} ke Streamlit Cloud...`);
+            }
         }
 
         function expandAll() {
