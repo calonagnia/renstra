@@ -140,7 +140,7 @@ try:
             
         # 2. Push directly to GitHub Repository if Token is configured
         if "GITHUB_TOKEN" in st.secrets:
-            REPO = "YOUR_GITHUB_USERNAME/YOUR_REPO_NAME"  # <-- Adjust to your github repo
+            REPO = "calonagnia/renstra"  # <-- Adjust to your github repo
             BRANCH = "main"
             API_URL = f"https://api.github.com/repos/{REPO}/contents/{csv_finance_path}"
             headers = {
