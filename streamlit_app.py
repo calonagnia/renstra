@@ -112,3 +112,11 @@ try:
 
 except FileNotFoundError as e:
     st.error(f"Missing base HTML file error: {e}. Please ensure '{html_file_path}' is pushed to GitHub.")
+
+updated_data_from_ui = components.html(full_html, height=900, scrolling=True)
+
+# If data comes back from the UI, intercept it and write to disk
+if updated_data_from_ui:
+    with open(csv_finance_path, "w", encoding="utf-8") as f:
+        f.write(updated_data_from_ui)
+    st.rerun()

@@ -1679,8 +1679,12 @@ Listrik,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.,Install 
                 const newStrategy = document.getElementById('strategyTextarea').value.trim();
                 updateNodeStrategyInCSV(nodeId, newStrategy);
                 showFeedbackToast("Strategy updated and synchronized back to database!");
-                
+                if (window.Streamlit) {
+                    // Send the updated CSV text or specific row changes back to Streamlit
+                    Streamlit.setComponentValue(updatedCSVText);
+                }
                 saveCSVToJupyter(activeCSVText, "Net Income - Copy.csv");
+                
                 showNodeDetails(nodeId); 
             }
         }
