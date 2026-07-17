@@ -1089,7 +1089,8 @@ Listrik,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.,Install 
             const encodedFilename = encodeURIComponent(filename);
             const filePath = `Renstra/Project%20Financial%20Tree%20Explorer/${encodedFilename}`;
             const url = `/api/contents/${filePath}${token ? '?token=' + token : ''}`;
-
+            window.latestUpdatedCSV = activeCSVText;
+            
             const payload = {
                 name: filename,
                 path: `Renstra/Project Financial Tree Explorer/${filename}`,

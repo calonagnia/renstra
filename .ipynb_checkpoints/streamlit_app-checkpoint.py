@@ -14,7 +14,7 @@ try:
     # 1. Read the base HTML file
     with open(html_file_path, "r", encoding="utf-8") as f:
         html_content = f.read()
-    
+
     # 2. Safely read CSV contents using Python
     finance_csv_data = ""
     try:
@@ -72,23 +72,22 @@ try:
     </script>
     """
 
-   # 4. Combine and render the final sandboxed app
+    # 4. Combine and render the final sandboxed app UI layout
     full_html = html_content + injection_script
     components.html(full_html, height=900, scrolling=True)
 
     st.divider()
 
-    # 5. Gunakan Form Pengeditan Resmi dari Sisi Streamlit (Aman & Permanen)
+    # 5. Native Streamlit Manual Fallback Editor Form Panel
     st.subheader("📝 Edit & Simpan Database Secara Permanen")
-    
     with st.expander("Buka Panel Editor CSV"):
-        tab1, tab2 = st.tabs(["Net Income - Copy.csv", "Strategic Initiative.csv"])
+        tab1, tab2 = st.tabs(["Net Income Database", "Strategic Initiative Database"])
         
         with tab1:
             updated_finance = st.text_area(
-                "Active Financial Database (Net Income - Copy.csv)", 
-                value=finance_csv_data, 
-                height=300, 
+                "Active Financial Database (Net Income - Copy.csv)",
+                value=finance_csv_data,
+                height=300,
                 key="finance_editor_area"
             )
             if st.button("Simpan Perubahan Net Income", type="primary"):
@@ -96,12 +95,12 @@ try:
                     f.write(updated_finance)
                 st.success("✅ Perubahan pada Net Income - Copy.csv berhasil disimpan!")
                 st.rerun()
-                
+
         with tab2:
             updated_initiative = st.text_area(
-                "Active Strategic Initiative Database (Strategic Initiative.csv)", 
-                value=initiative_csv_data, 
-                height=300, 
+                "Active Strategic Initiative Database (Strategic Initiative.csv)",
+                value=initiative_csv_data,
+                height=300,
                 key="initiative_editor_area"
             )
             if st.button("Simpan Perubahan Strategic Initiative", type="primary"):
@@ -110,13 +109,32 @@ try:
                 st.success("✅ Perubahan pada Strategic Initiative.csv berhasil disimpan!")
                 st.rerun()
 
+    # 6. Bidirectional Data Loopback using st_javascript
+    # Scans document iframes for changes exposed by the custom UI components
+    js_fetch_script = """
+        (async () => {
+            const iframes = parent.document.getElementsByTagName('iframe');
+            for (let i = 0; i < iframes.length; i++) {
+                try {
+                    const win = iframes[i].contentWindow;
+                    if (win && win.latestUpdatedCSV) {
+                        return win.latestUpdatedCSV;
+                    }
+                } catch (e) {
+                    // Bypass potential cross-origin validation flags smoothly
+                }
+            }
+            return null;
+        })()
+    """
+
+    updated_csv_from_js = st_javascript(js_fetch_script)
+
+    # Overwrite database files if the iframe frontend passes an updated string back
+    if updated_csv_from_js and updated_csv_from_js != finance_csv_data:
+        with open(csv_finance_path, "w", encoding="utf-8") as f:
+            f.write(updated_csv_from_js)
+        st.rerun()
+
 except FileNotFoundError as e:
     st.error(f"Missing base HTML file error: {e}. Please ensure '{html_file_path}' is pushed to GitHub.")
-
-updated_data_from_ui = components.html(full_html, height=900, scrolling=True)
-
-# If data comes back from the UI, intercept it and write to disk
-if updated_data_from_ui:
-    with open(csv_finance_path, "w", encoding="utf-8") as f:
-        f.write(updated_data_from_ui)
-    st.rerun()
