@@ -30,23 +30,8 @@ try:
     except Exception:
         pass
 
-    # 3. Inject script to override the layout & hide Level 0 (depth 0)
- # 3. Inject script to override the layout & hide Level 0 (depth 0)
-# 3. Inject script to completely hide the L0 root node and its connecting lines
+    # 3. Inject script that forces D3 to start its hierarchy layout at depth 1 (L1)
     injection_script = f"""
-<style>
-/* CSS styles targeting various potential selectors for the L0 card */
-.node-depth-0, 
-[data-id="Total Financial Scope"],
-g:has(text:contains("Total Financial Scope")),
-foreignObject:has(h5:contains("Total Financial Scope")),
-div:has(h5:contains("Total Financial Scope")) {{
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-}}
-</style>
 <script>
 window.onload = async function() {{
     let loadedCSV = DEFAULT_CSV;
@@ -72,62 +57,34 @@ window.onload = async function() {{
         csvEditor.value = activeCSVText;
     }}
 
-    // Initial parse and render
+    // Initial parse of the databases
     parseStrategicInitiatives(activeInitiativeCSVText);
+    
+    // Call standard parse and render
     parseAndRender(activeCSVText);
-    collapseAll();
-    resetView();
 
-    // Loop to continuously scan the DOM and hide L0 elements
-    const purgeL0 = () => {{
-        // 1. Target by checking bound d3 data depth
-        d3.selectAll('g, .node, .node-container, foreignObject').each(function(d) {{
-            if (d && d.depth === 0) {{
-                d3.select(this).style('display', 'none').style('visibility', 'hidden');
-            }}
-        }});
-
-        // 2. Target by scanning DOM text content (Total Financial Scope)
-        document.querySelectorAll('foreignObject, g, div').forEach(el => {{
-            if (el.textContent && el.textContent.includes('Total Financial Scope')) {{
-                // Hide the container element
-                el.style.setProperty('display', 'none', 'important');
-                el.style.setProperty('visibility', 'hidden', 'important');
-                
-                // If it's inside a foreignObject, hide the parent group element
-                const parentGroup = el.closest('g');
-                if (parentGroup) {{
-                    parentGroup.style.setProperty('display', 'none', 'important');
-                    parentGroup.style.setProperty('visibility', 'hidden', 'important');
-                }}
-            }}
-        }});
-
-        // 3. Hide all SVG links connecting from depth 0 (origin)
-        d3.selectAll('path.link, path, .link').each(function(d) {{
-            if (d && d.source && d.source.depth === 0) {{
-                d3.select(this).style('display', 'none').style('visibility', 'hidden');
-            }}
-        }});
-    }};
-
-    // Intercept standard update loop
-    const originalUpdate = typeof update === 'function' ? update : null;
-    if (originalUpdate) {{
-        update = function(source) {{
-            originalUpdate(source);
-            purgeL0();
-        }};
-        if (typeof root !== 'undefined') {{
+    // Dynamic Tree Root Hack: Replace root with its child (L1 root)
+    if (typeof root !== 'undefined' && root.children && root.children.length > 0) {{
+        // Save the original root globally
+        window.originalRoot = root;
+        
+        // Elevate the main Level 1 child (Net Income) to be the virtual root
+        // If there are multiple L1 items, we use the first child (typically Net Income)
+        root = root.children[0]; 
+        root.parent = null; // Decouple it from L0 so no lines draw back to it
+        
+        // Re-render starting from the new virtual root
+        if (typeof update === 'function') {{
             update(root);
         }}
     }}
 
-    // Fallback interval to handle dynamic transitions, zooms, and node expansions
-    setInterval(purgeL0, 100);
+    collapseAll();
+    resetView();
 }};
 </script>
 """
+
     # 4. Combine and render the final sandboxed app
     full_html = html_content + injection_script
     components.html(full_html, height=900, scrolling=True)
