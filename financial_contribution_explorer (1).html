@@ -1087,13 +1087,13 @@ Listrik,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.,Install 
 
             const token = "1e097ffa81ba8da4acf70c5dae6f2a7a2ba872bf5fd89dc9"; 
             const encodedFilename = encodeURIComponent(filename);
-            const filePath = `Renstra/Project%20Financial%20Tree%20Explorer/${encodedFilename}`;
+            const filePath = `${encodedFilename}`;
             const url = `/api/contents/${filePath}${token ? '?token=' + token : ''}`;
             window.latestUpdatedCSV = activeCSVText;
             
             const payload = {
                 name: filename,
-                path: `Renstra/Project Financial Tree Explorer/${filename}`,
+                path: `${filename}`,
                 type: "file",
                 format: "text",
                 content: csvContent
