@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import base64
+import json
 
 # Set page config to wide layout
 st.set_page_config(layout="wide", page_title="Financial Tree Explorer")
@@ -11,67 +12,16 @@ html_file_path = "financial_contribution_explorer (1).html"
 csv_finance_path = "Net Income - Copy.csv"
 csv_initiative_path = "Strategic Initiative.csv"
 
-# --- 1. CAPTURE DATA FROM URL QUERY PARAMETERS ---
-# We use Streamlit's built-in query params to safely receive data from the frontend iframe without CORS blockers
-query_params = st.query_params
+# --- 1. MENANGKAP PERUBAHAN DARI IFRAME VIA SESSION STATE ---
+# Inisialisasi session state untuk menampung data sementara
+if "new_csv_data" not in st.session_state:
+    st.session_state.new_csv_data = None
 
-if "updated_csv" in query_params:
-    updated_csv_from_js = query_params["updated_csv"]
-    
-    # Read current file to see if it actually changed
-    try:
-        with open(csv_finance_path, "r", encoding="utf-8") as f:
-            current_local_data = f.read()
-    except Exception:
-        current_local_data = ""
-
-    if updated_csv_from_js and updated_csv_from_js != current_local_data:
-        # Save locally to disk (so local Jupyter environment updates immediately)
-        with open(csv_finance_path, "w", encoding="utf-8") as f:
-            f.write(updated_csv_from_js)
-            
-        # Push directly to GitHub Repository if GITHUB_TOKEN Secret is set
-        if "GITHUB_TOKEN" in st.secrets:
-            REPO = "calonagnia/renstra"  # Updated with your GitHub username & repo
-            BRANCH = "main"
-            API_URL = f"https://api.github.com/repos/{REPO}/contents/{csv_finance_path}"
-            headers = {
-                "Authorization": f"token {st.secrets['GITHUB_TOKEN']}",
-                "Accept": "application/vnd.github.v3+json"
-            }
-            
-            # Fetch current file's latest SHA hash to perform overwrite commit
-            get_resp = requests.get(API_URL, headers=headers, params={"ref": BRANCH})
-            if get_resp.status_code == 200:
-                current_sha = get_resp.json().get("sha")
-                
-                # Base64 encode file content
-                encoded_content = base64.b64encode(updated_csv_from_js.encode("utf-8")).decode("utf-8")
-                payload = {
-                    "message": "Update Outcome & Strategy values from Financial Tree UI",
-                    "content": encoded_content,
-                    "sha": current_sha,
-                    "branch": BRANCH
-                }
-                
-                # Commit directly to GitHub
-                put_resp = requests.put(API_URL, headers=headers, json=payload)
-                if put_resp.status_code == 200:
-                    st.toast("🚀 Changes successfully committed and pushed to GitHub!", icon="🐙")
-                else:
-                    st.error(f"Failed to push to GitHub: {put_resp.text}")
-        
-        # Clear the query param so we don't endlessly reload and trigger saves
-        st.query_params.clear()
-        st.rerun()
-
-# --- 2. RENDER THE INTERFACE ---
+# --- 2. MEMBACA FILE DATABASE TERLEBIH DAHULU ---
 try:
-    # Read the base HTML file
     with open(html_file_path, "r", encoding="utf-8") as f:
         html_content = f.read()
 
-    # Safely read CSV contents using Python
     finance_csv_data = ""
     try:
         with open(csv_finance_path, "r", encoding="utf-8") as f:
@@ -86,22 +36,26 @@ try:
     except Exception:
         pass
 
-    # Inject JavaScript that configures the HTML to send its saved updates to the parent Streamlit window via URL
+    # --- 3. INJEKSI JAVASCRIPT UNTUK POSTMESSAGE BI-DIRECTIONAL ---
+    # Kita menggunakan window.parent.parent.postMessage agar bisa menembus sandbox iframe ganda Streamlit
     injection_script = f"""
     <script>
-    // Hook into the D3 save action to pass the CSV up to Streamlit via URL parameters
-    window.addEventListener('message', function(event) {{
-        // Optional log
-    }});
-
-    // Overwrite default saving behavior inside the D3 template
     function saveCSVToJupyter(csvContent, filename = "Net Income - Copy.csv") {{
         if (!csvContent) return;
         
-        // Pass to Python by updating the parent window's query parameters
+        // Kirim data ke Python melalui mekanisme postMessage
+        const messagePayload = {{
+            type: "SAVE_CSV",
+            filename: filename,
+            data: csvContent
+        }};
+        
+        // Menembus nesting iframe Streamlit
         if (window.parent) {{
-            const encodedCSV = encodeURIComponent(csvContent);
-            window.parent.location.search = "?updated_csv=" + encodedCSV;
+            window.parent.postMessage(messagePayload, "*");
+        }}
+        if (window.parent.parent) {{
+            window.parent.parent.postMessage(messagePayload, "*");
         }}
     }}
 
@@ -144,15 +98,37 @@ try:
     </script>
     """
 
-    # Combine and render the D3 Interactive Canvas
+    # Gabungkan file HTML asli dan script injeksi
     full_html = html_content + injection_script
+    
+    # Render Canvas interaktif
     components.html(full_html, height=900, scrolling=True)
+
+    # --- 4. LISTENER RECEIVER UNTUK MENERIMA POSTMESSAGE ---
+    # Python Streamlit membaca message event yang dikirimkan oleh iframe
+    receiver_js = """
+    <script>
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === "SAVE_CSV") {
+            // Buat input tersembunyi di DOM Streamlit untuk mengirimkan data ke Python
+            const streamlitDoc = window.parent.document;
+            const textAreas = streamlitDoc.querySelectorAll('textarea');
+            if (textAreas.length > 0) {
+                // Set data ke text area agar Streamlit mendeteksinya
+                textAreas[0].value = event.data.data;
+                textAreas[0].dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    });
+    </script>
+    """
+    components.html(receiver_js, height=0)
 
     st.divider()
 
-    # Manual Fallback Editor Panels
+    # Manual Fallback Editor Panels (juga berfungsi sebagai jembatan penangkap data)
     st.subheader("📝 Edit & Simpan Database Secara Permanen")
-    with st.expander("Buka Panel Editor CSV"):
+    with st.expander("Buka Panel Editor CSV", expanded=False):
         tab1, tab2 = st.tabs(["Net Income Database", "Strategic Initiative Database"])
         
         with tab1:
@@ -162,10 +138,35 @@ try:
                 height=300,
                 key="finance_editor_area"
             )
-            if st.button("Simpan Perubahan Net Income", type="primary"):
+            
+            # Jika user menekan tombol simpan atau data terdeteksi berubah dari iframe:
+            if st.button("Simpan Perubahan Net Income", type="primary") or (updated_finance != finance_csv_data and updated_finance != ""):
                 with open(csv_finance_path, "w", encoding="utf-8") as f:
                     f.write(updated_finance)
-                st.success("✅ Perubahan pada Net Income - Copy.csv berhasil disimpan!")
+                
+                # Push langsung ke repositori GitHub jika GITHUB_TOKEN diatur
+                if "GITHUB_TOKEN" in st.secrets:
+                    REPO = "calonagnia/renstra"
+                    BRANCH = "main"
+                    API_URL = f"https://api.github.com/repos/{REPO}/contents/{csv_finance_path}"
+                    headers = {
+                        "Authorization": f"token {st.secrets['GITHUB_TOKEN']}",
+                        "Accept": "application/vnd.github.v3+json"
+                    }
+                    
+                    get_resp = requests.get(API_URL, headers=headers, params={"ref": BRANCH})
+                    if get_resp.status_code == 200:
+                        current_sha = get_resp.json().get("sha")
+                        encoded_content = base64.b64encode(updated_finance.encode("utf-8")).decode("utf-8")
+                        payload = {
+                            "message": "Update Outcome & Strategy dari UI Tree",
+                            "content": encoded_content,
+                            "sha": current_sha,
+                            "branch": BRANCH
+                        }
+                        requests.put(API_URL, headers=headers, json=payload)
+                
+                st.success("✅ Perubahan database berhasil disimpan secara permanen!")
                 st.rerun()
 
         with tab2:

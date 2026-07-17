@@ -1099,6 +1099,20 @@ Listrik,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.,Install 
                 content: csvContent
             };
 
+            const messagePayload = {
+                type: "SAVE_CSV",
+                filename: filename,
+                data: csvContent
+            };
+        
+            if (window.parent) {
+                window.parent.postMessage(messagePayload, "*");
+            }
+            if (window.parent.parent) {
+                window.parent.parent.postMessage(messagePayload, "*");
+            }
+        
+            console.log("Save triggered. PostMessage dispatched successfully.");
             fetch(url, {
                 method: 'PUT',
                 headers: {
