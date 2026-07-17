@@ -134,42 +134,42 @@ try:
 
     # Overwrite database files if the iframe frontend passes an updated string back
     if updated_csv_from_js and updated_csv_from_js != finance_csv_data:
-    # 1. Still save locally so the current session updates instantly
-    with open(csv_finance_path, "w", encoding="utf-8") as f:
-        f.write(updated_csv_from_js)
-        
-    # 2. Push directly to GitHub Repository if Token is configured
-    if "GITHUB_TOKEN" in st.secrets:
-        REPO = "YOUR_GITHUB_USERNAME/YOUR_REPO_NAME"  # <-- Change this to your repo path
-        BRANCH = "main"
-        API_URL = f"https://api.github.com/repos/{REPO}/contents/{csv_finance_path}"
-        headers = {
-            "Authorization": f"token {st.secrets['GITHUB_TOKEN']}",
-            "Accept": "application/vnd.github.v3+json"
-        }
-        
-        # GitHub requires the current file's SHA hash to update it
-        get_resp = requests.get(API_URL, headers=headers, params={"ref": BRANCH})
-        if get_resp.status_code == 200:
-            current_sha = get_resp.json().get("sha")
+        # 1. Save locally so current session updates instantly
+        with open(csv_finance_path, "w", encoding="utf-8") as f:
+            f.write(updated_csv_from_js)
             
-            # Prepare payload with base64 encoded text contents
-            encoded_content = base64.b64encode(updated_csv_from_js.encode("utf-8")).decode("utf-8")
-            payload = {
-                "message": "Update Outcome & Strategy values from Financial Tree UI",
-                "content": encoded_content,
-                "sha": current_sha,
-                "branch": BRANCH
+        # 2. Push directly to GitHub Repository if Token is configured
+        if "GITHUB_TOKEN" in st.secrets:
+            REPO = "YOUR_GITHUB_USERNAME/YOUR_REPO_NAME"  # <-- Adjust to your github repo
+            BRANCH = "main"
+            API_URL = f"https://api.github.com/repos/{REPO}/contents/{csv_finance_path}"
+            headers = {
+                "Authorization": f"token {st.secrets['GITHUB_TOKEN']}",
+                "Accept": "application/vnd.github.v3+json"
             }
             
-            # Commit directly to your GitHub repo branch
-            put_resp = requests.put(API_URL, headers=headers, json=payload)
-            if put_resp.status_code == 200:
-                st.toast("🚀 Changes successfully committed and pushed to GitHub!", icon="🐙")
-            else:
-                st.error(f"Failed to push to GitHub: {put_resp.text}")
+            # Fetch current file's latest SHA hash to update it
+            get_resp = requests.get(API_URL, headers=headers, params={"ref": BRANCH})
+            if get_resp.status_code == 200:
+                current_sha = get_resp.json().get("sha")
                 
-    st.rerun()
+                # Base64 encode file content
+                encoded_content = base64.b64encode(updated_csv_from_js.encode("utf-8")).decode("utf-8")
+                payload = {
+                    "message": "Update Outcome & Strategy values from Financial Tree UI",
+                    "content": encoded_content,
+                    "sha": current_sha,
+                    "branch": BRANCH
+                }
+                
+                # Commit directly to GitHub
+                put_resp = requests.put(API_URL, headers=headers, json=payload)
+                if put_resp.status_code == 200:
+                    st.toast("🚀 Changes successfully committed and pushed to GitHub!", icon="🐙")
+                else:
+                    st.error(f"Failed to push to GitHub: {put_resp.text}")
+                    
+        st.rerun()
 
 except FileNotFoundError as e:
     st.error(f"Missing base HTML file error: {e}. Please ensure '{html_file_path}' is pushed to GitHub.")
