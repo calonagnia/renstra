@@ -21,23 +21,31 @@ try:
         with open(csv_finance_path, "r", encoding="utf-8") as f:
             finance_csv_data = f.read()
     except Exception:
-        pass  # If file reading fails, Python leaves it as None so JS falls back
+        pass
 
     initiative_csv_data = None
     try:
         with open(csv_initiative_path, "r", encoding="utf-8") as f:
             initiative_csv_data = f.read()
     except Exception:
-        pass  # If file reading fails, Python leaves it as None so JS falls back
+        pass
 
-    # 3. Build the dynamic script injection matching your original HTML fallback pattern
+    # 3. Inject script to override the layout & hide Level 0 (depth 0)
     injection_script = f"""
+<style>
+/* CSS to completely hide the Level 0 Root Node and its connections */
+.node-depth-0 {{
+    display: none !important;
+}}
+.link-source-0 {{
+    display: none !important;
+}}
+</style>
 <script>
 window.onload = async function() {{
     let loadedCSV = DEFAULT_CSV;
     let loadedInitiatives = DEFAULT_INITIATIVE_CSV;
 
-    // Try using the injected Python variables, otherwise fall back to DEFAULT constants
     try {{
         {f"loadedCSV = `{finance_csv_data}`;" if finance_csv_data is not None else "throw new Error('Local CSV not found');"}
     }} catch (err) {{
@@ -50,7 +58,6 @@ window.onload = async function() {{
         loadedInitiatives = DEFAULT_INITIATIVE_CSV;
     }}
 
-    // Assign to the active global variables
     activeCSVText = loadedCSV;
     activeInitiativeCSVText = loadedInitiatives;
 
@@ -59,11 +66,31 @@ window.onload = async function() {{
         csvEditor.value = activeCSVText;
     }}
 
-    // Initial parse and render matching your original window.onload routine
+    // Initial parse and render
     parseStrategicInitiatives(activeInitiativeCSVText);
     parseAndRender(activeCSVText);
     collapseAll();
     resetView();
+
+    // D3 visual fix: Intercept nodes/links after they render and add dynamic CSS classes
+    const originalUpdate = typeof update === 'function' ? update : null;
+    if (originalUpdate) {{
+        update = function(source) {{
+            originalUpdate(source);
+            
+            // Hide Depth 0 Nodes
+            d3.selectAll('.node')
+              .classed('node-depth-0', d => d.depth === 0);
+              
+            // Hide Links originating from Depth 0
+            d3.selectAll('.link')
+              .classed('link-source-0', d => d.source && d.source.depth === 0);
+        }};
+        // Trigger one update to apply class rules immediately
+        if (typeof root !== 'undefined') {{
+            update(root);
+        }}
+    }}
 }};
 </script>
 """
