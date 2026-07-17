@@ -31,14 +31,18 @@ try:
         pass
 
     # 3. Inject script to override the layout & hide Level 0 (depth 0)
+ # 3. Inject script to override the layout & hide Level 0 (depth 0)
     injection_script = f"""
 <style>
-/* CSS to completely hide the Level 0 Root Node and its connections */
-.node-depth-0 {{
+/* Aggressively hide anything associated with Depth 0 */
+g.node-depth-0,
+g.node:nth-child(1), /* Fallback selector if dynamic classes aren't bound */
+path.link-source-0,
+.node[data-depth="0"] {{
     display: none !important;
-}}
-.link-source-0 {{
-    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }}
 </style>
 <script>
@@ -72,25 +76,40 @@ window.onload = async function() {{
     collapseAll();
     resetView();
 
-    // D3 visual fix: Intercept nodes/links after they render and add dynamic CSS classes
+    // Direct DOM Interceptor to flag depth-0 elements as soon as they render
+    const runHider = () => {{
+        // Find node elements and check their bound D3 data
+        d3.selectAll('g.node, g.node-container, .node').each(function(d) {{
+            if (d && d.depth === 0) {{
+                d3.select(this).classed('node-depth-0', true);
+                d3.select(this).style('display', 'none').style('visibility', 'hidden');
+            }}
+        }});
+
+        // Find links originating from depth 0
+        d3.selectAll('path.link, .link').each(function(d) {{
+            if (d && d.source && d.source.depth === 0) {{
+                d3.select(this).classed('link-source-0', true);
+                d3.select(this).style('display', 'none').style('visibility', 'hidden');
+            }}
+        }});
+    }};
+
+    // Intercept standard update loop
     const originalUpdate = typeof update === 'function' ? update : null;
     if (originalUpdate) {{
         update = function(source) {{
             originalUpdate(source);
-            
-            // Hide Depth 0 Nodes
-            d3.selectAll('.node')
-              .classed('node-depth-0', d => d.depth === 0);
-              
-            // Hide Links originating from Depth 0
-            d3.selectAll('.link')
-              .classed('link-source-0', d => d.source && d.source.depth === 0);
+            runHider();
         }};
-        // Trigger one update to apply class rules immediately
+        // Trigger now
         if (typeof root !== 'undefined') {{
             update(root);
         }}
     }}
+    
+    // Fallback interval just in case D3 transitions run asynchronously
+    setInterval(runHider, 300);
 }};
 </script>
 """
