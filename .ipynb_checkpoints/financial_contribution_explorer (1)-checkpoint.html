@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Financial Breakdown Tree with Strategic Insights</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .tree-container { user-select: none; cursor: grab; }
+        .tree-container:active { cursor: grabbing; }
+        .node-card { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .node-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        
+        /* Smooth Transition for Sidebars */
+        #leftSidebar, #rightDetailPane {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .connector-line {
+            stroke: rgb(220 225 235) !important;
+            stroke-width: 1.5px !important;
+            transition: stroke-dashoffset 0.5s ease, d 0.3s ease;
+        }
+
+        /* Custom styling for the strategic details button */
+        .strategic-btn {
+            background-color: #ccddff;
+            color: #1e293b; /* Slate 800 */
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .strategic-btn:hover {
+            background-color: #b0caff;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-slate-800">
+
+    <!-- HEADER -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-shrink-0 items-center justify-between z-20 shadow-sm">
+        <div class="flex items-center gap-4">
+            <!-- Burger Icon Button -->
+            <button onclick="toggleLeftSidebar()" class="text-slate-600 hover:text-slate-900 p-2 rounded-xl hover:bg-slate-100 transition-all focus:outline-none" title="Toggle Sidebar">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+            
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md shadow-indigo-100 flex items-center justify-center">
+                    <i class="fa-solid fa-sitemap text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Financial Contribution Explorer</h1>
+                    <p class="text-xs text-slate-500 font-medium">Interactive Dynamic 6-Level Expense & Revenue Decomposition with Milestones</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <div class="relative w-64">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </span>
+                <input type="text" id="nodeSearch" placeholder="Search expenses/revenues..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+            </div>
+            <button onclick="toggleDataDrawer()" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl text-sm transition-all border border-slate-200">
+                <i class="fa-solid fa-database"></i> <span>Source Databases</span>
+            </button>
+            <button onclick="resetView()" class="flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 w-9 h-9 rounded-xl text-sm transition-all border border-slate-200" title="Reset Camera">
+                <i class="fa-solid fa-camera-rotate"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- SIDEBAR (Left Pane) -->
+        <aside id="leftSidebar" class="absolute inset-y-0 left-0 w-60 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 z-10 shadow-xl overflow-y-auto transform -translate-x-full">
+            <div class="p-3 border-b border-slate-100">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Hierarchy Expand</h2>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button onclick="expandToLevel(1)" class="level-btn py-1.5 px-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-lg text-[10px] transition-all border border-indigo-100">Level 1</button>
+                    <button onclick="expandToLevel(2)" class="level-btn py-1.5 px-2 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium rounded-lg text-[10px] transition-all border border-slate-200">Level 2</button>
+                    <button onclick="expandToLevel(3)" class="level-btn py-1.5 px-2 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium rounded-lg text-[10px] transition-all border border-slate-200">Level 3</button>
+                    <button onclick="expandToLevel(4)" class="level-btn py-1.5 px-2 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium rounded-lg text-[10px] transition-all border border-slate-200">Level 4</button>
+                    <button onclick="expandToLevel(5)" class="level-btn py-1.5 px-2 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium rounded-lg text-[10px] transition-all border border-slate-200">Level 5</button>
+                    <button onclick="expandToLevel(6)" class="level-btn py-1.5 px-2 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium rounded-lg text-[10px] transition-all border border-slate-200">Level 6</button>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="expandAll()" class="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-[10px] transition-all text-center">
+                        <i class="fa-solid fa-folder-open mr-1"></i> Expand All
+                    </button>
+                    <button onclick="collapseAll()" class="flex-1 py-1.5 px-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-[10px] transition-all text-center">
+                        <i class="fa-solid fa-folder mr-1"></i> Collapse All
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-5 border-b border-slate-100">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Layout Orientation</h2>
+                <div class="flex bg-slate-100 p-1 rounded-xl">
+                    <button id="btnHorizontal" onclick="setOrientation('horizontal')" class="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all bg-white text-indigo-700 shadow-sm">
+                        <i class="fa-solid fa-arrows-left-right-to-line"></i> Horizontal
+                    </button>
+                    <button id="btnVertical" onclick="setOrientation('vertical')" class="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg text-slate-600 transition-all hover:text-slate-900">
+                        <i class="fa-solid fa-arrows-up-down-to-line"></i> Vertical
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-5 flex-1">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Selection Details</h2>
+                <div id="detailsPlaceholder" class="text-center py-8 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <i class="fa-solid fa-circle-info text-2xl text-slate-300 mb-2"></i>
+                    <p class="text-xs text-slate-500 font-medium">Click any card in the tree to view comprehensive contribution analytics, parent ratios, and child breakdown statistics.</p>
+                </div>
+                <div id="detailsCard" class="hidden space-y-4">
+                    <!-- Populated via selectNode() -->
+                </div>
+            </div>
+            
+            <div class="p-4 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+                <div class="flex gap-2 items-start"><i class="fa-solid fa-mouse text-slate-400 mt-0.5"></i> <span>Drag to pan around. Scroll to zoom.</span></div>
+                <div class="flex gap-2 items-start"><i class="fa-solid fa-hand-pointer text-slate-400 mt-0.5"></i> <span>Click a node to highlight and analyze.</span></div>
+                <div class="flex gap-2 items-start"><i class="fa-solid fa-folder-minus text-slate-400 mt-0.5"></i> <span>Click the toggle button on a node to collapse/expand.</span></div>
+            </div>
+        </aside>
+
+        <!-- MAIN CANVAS -->
+        <main class="flex-1 relative overflow-hidden bg-slate-50 select-none">
+            <div class="absolute bottom-6 right-6 flex items-center gap-2 bg-white/95 backdrop-blur-md px-3 py-2 rounded-2xl shadow-xl border border-slate-200 z-10">
+                <button onclick="zoomIn()" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all" title="Zoom In">
+                    <i class="fa-solid fa-plus text-sm"></i>
+                </button>
+                <div id="zoomIndicator" class="text-xs font-bold text-slate-500 w-12 text-center">100%</div>
+                <button onclick="zoomOut()" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all" title="Zoom Out">
+                    <i class="fa-solid fa-minus text-sm"></i>
+                </button>
+                <div class="w-px h-5 bg-slate-200 mx-1"></div>
+                <button onclick="resetView()" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all" title="Reset Camera">
+                    <i class="fa-solid fa-expand text-sm"></i>
+                </button>
+            </div>
+            
+            <div id="viewContainer" class="w-full h-full overflow-hidden relative tree-container">
+                <div id="treeCanvas" class="absolute origin-top-left transition-transform duration-75 ease-out" style="transform: translate(0px, 0px) scale(1);">
+                    <svg id="svgLines" class="absolute pointer-events-none overflow-visible"></svg>
+                    <div id="nodesLayer" class="absolute inset-0 pointer-events-auto"></div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- RIGHT STRATEGIC DETAILS PANEL (Outcome & Strategy + Linked Milestones) -->
+        <div id="rightDetailPane" class="fixed inset-y-0 right-0 w-[420px] bg-white border-l border-slate-200 shadow-2xl z-30 transform translate-x-full flex flex-col">
+            <div class="p-6 border-b border-slate-200 flex justify-between items-center bg-indigo-50/40">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-100 flex items-center justify-center">
+                        <i class="fa-solid fa-lightbulb text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900 tracking-tight">Strategic Insights</h2>
+                        <p class="text-[10px] text-slate-500 font-medium">Outcome & Strategy Execution Matrix</p>
+                    </div>
+                </div>
+                <button onclick="closeRightDetailPane()" class="text-slate-400 hover:text-slate-600 transition-all p-2 rounded-xl hover:bg-slate-100">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="rightDetailContent" class="p-6 flex-1 overflow-y-auto space-y-6">
+                <!-- Loaded dynamically by showNodeDetails() -->
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 text-center text-[10px] text-slate-400 font-medium">
+                Click elsewhere on the canvas to close strategic view
+            </div>
+        </div>
+        
+        <!-- DATA DRAWER (Source Management panel) -->
+        <div id="dataDrawer" class="fixed inset-y-0 right-0 w-[550px] bg-white border-l border-slate-200 shadow-2xl z-30 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+            <div class="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-database text-indigo-600 text-lg"></i>
+                    <h2 class="text-lg font-bold text-slate-900">Manage Hierarchical Databases</h2>
+                </div>
+                <button onclick="toggleDataDrawer()" class="text-slate-400 hover:text-slate-600 transition-all p-1.5 rounded-lg hover:bg-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto space-y-6">
+                <!-- Tabs to switch between Net Income and Strategic Initiatives -->
+                <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
+                    <button id="tabFinancial" onclick="switchDrawerTab('financial')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-white text-indigo-700 shadow-sm">
+                        Net Income - Copy.csv
+                    </button>
+                    <button id="tabInitiative" onclick="switchDrawerTab('initiative')" class="flex-1 py-2 text-xs font-semibold rounded-lg text-slate-600 transition-all hover:text-slate-900">
+                        Strategic Initiative.csv
+                    </button>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Upload custom Excel CSV</label>
+                    <div id="dropzone" class="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20 rounded-2xl p-6 text-center transition-all cursor-pointer relative">
+                        <input type="file" id="fileInput" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-indigo-500 mb-2"></i>
+                        <p class="text-sm font-semibold text-slate-700">Drag & drop your CSV file here</p>
+                        <p class="text-xs text-slate-400 mt-1">Accepts comma/semicolon-separated values (.csv)</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col flex-1 h-[320px]">
+                    <div class="flex justify-between items-center mb-2">
+                        <label id="editorLabel" class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Active Financial Database</label>
+                        <button onclick="restoreDefaultData()" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold transition-all">
+                            <i class="fa-solid fa-clock-rotate-left mr-0.5"></i> Restore Selected Defaults
+                        </button>
+                    </div>
+                    <textarea id="csvEditor" class="w-full flex-1 p-4 font-mono text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none bg-slate-900 text-slate-100" spellcheck="false"></textarea>
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-200 bg-slate-50 flex items-center gap-3">
+                <button onclick="applyCSVChanges()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-100 transition-all text-center text-sm"> Apply & Render Tree </button>
+                <button onclick="toggleDataDrawer()" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl transition-all text-sm"> Cancel </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const DEFAULT_CSV = `Level 1,Level 2,Level 3,Level 4,Level 5,Level 6,2025,Real,RKAP,Kontribusi,Emoji,2025%,%RKAP,Special,Outcome,Strategy
+NET Income,,,,,,37,1900,226,-32,??,5135%,841%,,,Optimize total system cost structure to secure a sustainable net margin across multiple units.
+NET Income,Revenue Net Semen,,,,,12.901,14.526,14.306,219.7204347,??,113%,102%,,29052,Increase regional export penetration to support sustainable pricing and offset local volume contractions.
+NET Income,Revenue Net Semen,VOLUME (Ribu Ton),,,,17.205,18358.49616,18322.30329,0,??,107%,100%,-12.42812106,36716.99232,Boost production utility and streamline inter-island logistics routes.
+NET Income,Revenue Net Semen,ASP NET (Rp. Ribu),,,,750,793,781,219.7204347,???,106%,102%,12.53009628,1586,Optimize dynamic pricing models in key target markets.
+NET Income,Revenue Net Non Semen,,,,,2.178,2.219,2.306,0,??,102%,96%,,4438,Expand logistics and storage solutions business models to drive high-margin non-cement revenues.
+NET Income,Revenue Net Non Semen,SIB (Rp. Milyar),,,,287,369,397,-28,??,129%,93%,,738,Improve commercial sales pipeline for concrete additives.
+NET Income,Revenue Net Non Semen,SBB (Rp. Milyar),,,,272,298,478,-179,??,110%,62%,,596,Optimize ready-mix batching plant locations and delivery times.
+NET Income,Revenue Net Non Semen,SKI (Rp. Milyar),,,,32,31,43,-12,??,97%,72%,,62,Form strategic local partnerships in key provinces.
+NET Income,Revenue Net Non Semen,SILOG (Rp. Milyar),,,,1.914,1.895,2.046,-151,??,99%,93%,,3.79,Enhance supply chain visibility and truck turnaround times.
+NET Income,Revenue Net Non Semen,SIII (Rp. Milyar), ,,,2.577,2.691,2.304,387,??,104%,117%,,5.382,Leverage digital order tracking to improve distribution accuracy.
+NET Income,Revenue Net Non Semen,IKSG (Rp. Milyar),,,,102,152,129,22,??,149%,118%,,304,Consolidate packaging manufacturing units.
+NET Income,Revenue Net Non Semen,UTSG (Rp. Milyar),,,,271,309,326,-17,??,114%,95%,,618,Introduce automated material loading mechanisms.
+NET Income,Revenue Net Non Semen,KIG (Rp. Milyar),,,,33,33,30,3,??,100%,110%,,66,Upgrade industrial park utilities to attract green tenants.
+NET Income,Revenue Net Non Semen,SMI (Rp. Milyar),,,,540,300,521,-221,??,56%,58%,,600,Restructure distribution networks in central regions.
+NET Income,Revenue Net Non Semen,SISI (Rp. Milyar),,,,66,54,75,-21,??,82%,72%,,108,Upgrade enterprise IT capabilities to automate billing flows.
+NET Income,Revenue Net Non Semen,ELIMINASI NS (Rp. Milyar),,,,-3.916,-3.912,-4.044,131,??,100%,97%,,-7.824,Eliminate redundant internal transactions.
+NET Income,COGS Semen,Var Cost,,,,-7.392,-8.607,-8,-607,??,116%,108%,,-17.214,Secure long-term energy contracts and transition to eco-friendly fuel alternatives.
+NET Income,COGS Semen,Var Cost,Bhn Baku,,,-1.36,-1.495,-1.516,21,??,110%,99%,,-2.99,Utilize regional mining clusters to minimize transportation costs.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Batu Kapur,,-491,-568,-610,42,??,116%,93%,,-1136,Optimize quarry blasting configurations.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Tanah Liat,,-96,-109,-130,21,?,114%,84%,,-218,Leverage dry raw material mixtures.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Pasir SIlika,,-63,-61,-50,-10,??,97%,122%,,-122,Re-negotiate supply agreements with local miners.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Pasir Besi,,-97,-93,-118,25,??,96%,79%,,-186,Source high-grade local alternatives to reduce imports.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Trass,,-76,-84,-77,-7,??,111%,109%,,-168,Utilize additive materials to maintain strength criteria.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Gypsum,,-181,-209,-207,-2,??,115%,101%,,-418,Optimize import timing during low-tariff cycles.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Fly Ash,,-53,-58,-53,-4,??,109%,109%,,-116,Partner with neighboring thermal plants for ash recycling.
+NET Income,COGS Semen,Var Cost,Bhn Baku,CGA,,-108,-109,-127,18,??,101%,86%,,-218,Enhance chemical additive control during mill feed.
+NET Income,COGS Semen,Var Cost,Bhn Baku,Others,,-195,-205,-144,-61,??,105%,142%,,-410,Streamline miscellaneous material requirements.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,,,-2.837,-3.018,-2.891,-127,??,106%,104%,,-6.036,Increase the co-processing rate of alternative fuels.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Batu Bara,,-2.461,-2.548,-2.454,-94,??,104%,104%,,-5.096,Hedging strategy on coal indexes to secure stable margins.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Batu Bara,Volume,12.257,12.427,12.941,97,??,101%,96%,,24.854,Reduce specific heat consumption in kilns.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Batu Bara,Indeks,0.213,0.215,0.21,-65,??,101%,102%,,0.43,Monitor international indexes for opportune buying windows.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Batu Bara,Harga,944,952,905,-126,??,101%,105%,,1904,Leverage bulk purchasing power and multi-year supply options.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Solar,,-101,-129,-75,-53,?,128%,172%,,-258,Optimize thermal fuel mix ratios dynamically.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Solar,Volume,7.577,7.777,5.704,3,?,103%,136%,,15.554,Convert auxiliary systems to natural gas where possible.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Solar,Indeks,0.618,0.626,0.441,-30,?,101%,142%,,1.252,Set trigger thresholds for oil derivative hedging.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Solar,Harga,13,17,13,-26,?,131%,131%,,34,Consolidate delivery channels with central suppliers.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Sekam Padi,,-82,-85,-85,0,??,104%,100%,,-170,Strengthen agricultural raw-materials partnerships.
+NET Income,COGS Semen,Var Cost,Bhn Bakar,Others & TLCC,,-194,-256,-276,20,???,132%,93%,,-512,Scale alternative solid fuel and municipal waste plants.
+NET Income,COGS Semen,Var Cost,Listrik,,,-1.601,-1.734,-1.736,2,?,108%,100%,,-3.468,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.
+NET Income,COGS Semen,Var Cost,Listrik,UP To KILN,,-931,-797,-966,169,?,86%,83%,,-1594,Perform regular maintenance on high-tension fan blowers.
+NET Income,COGS Semen,Var Cost,Listrik,UP To FM,,-511,-462,-569,107,?,90%,81%,,-924,Optimize finish grinding mills during off-peak power hours.
+NET Income,COGS Semen,Var Cost,Listrik,Others & TLCC,,-159,-475,-202,-273,?,299%,235%,,-950,Maximize solar PV installations on factory roofs.
+NET Income,COGS Semen,Var Cost,Kemasan,,,-537,-715,-692,-23,??,133%,103%,,-1430,Optimize raw paper weight specifications without losing rupture strength.
+NET Income,COGS Semen,Var Cost,Perniagaan,,,-1.021,-1.211,-1.037,-174,??,119%,117%,,-2.422,Consolidate maritime shipping corridors.
+NET Income,COGS Semen,Var Cost,Perniagaan,STO DARAT ,,-226,-247,-250,3,??,109%,99%,,-494,Renegotiate contract terms with long-haul trucking associations.
+NET Income,COGS Semen,Var Cost,Perniagaan,STO LAUT,,-477,-604,-497,-107,??,127%,122%,,-1208,Coordinate vessel lay-days to eliminate demurrage costs.
+NET Income,COGS Semen,Var Cost,Perniagaan,STO LAUT,Volume,1.597,2.115,2.017,-24,??,132%,105%,,4.23,Schedule shipment batches to align with seasonal tides.
+NET Income,COGS Semen,Var Cost,Perniagaan,STO LAUT,Harga,299,286,246,-83,??,96%,116%,,572,Leverage multi-year chartering frameworks.
+NET Income,COGS Semen,Var Cost,Perniagaan,PBM. PACKER & OTHERS,,-318,-360,-289,-70,??,113%,125%,,-720,Upgrade packing automation to minimize product spillages.
+NET Income,COGS Semen,Var Cost,Selper,,,-36,-434,-129,-305,??,1206%,336%,,-868,Form joint venture distribution companies.
+NET Income,COGS Semen,FIX COST,,,,-3.253,-3.327,-3.508,182,??,102%,95%,,-6.654,Implement preventive maintenance to avoid unexpected equipment downtimes.
+NET Income,COGS Semen,FIX COST,Tenaga Kerja,,,-754,-847,-913,67,??,112%,93%,,-1694,Improve workforce versatility via predictive scheduling.
+NET Income,COGS Semen,FIX COST,Pemeliharaan,,,-898,-889,-917,28,??,99%,97%,,-1778,Utilize IoT vibration sensors for early component failures.
+NET Income,COGS Semen,FIX COST,Penyusutan,,,-1.041,-1.008,-1.068,60,??,97%,94%,,-2.016,Refine amortization periods for primary equipment.
+NET Income,COGS Semen,FIX COST,Pajak & Asuransi,,,-337,-338,-361,23,???,100%,94%,,-676,Renegotiate plant shadow insurance portfolios.
+NET Income,COGS Semen,FIX COST,G & A,,,-223,-244,-248,4,???,109%,98%,,-488,Consolidate overlapping regional administration activities.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,,,-1.995,-2.036,-1.988,-47,??,102%,102%,,-4.072,Maintain tight material margins across non-cement manufacturing subsidiaries.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,SIB (Rp. Milyar),,-293,-365,-363,-2,??,125%,101%,,-730,Optimize distribution expenses for concrete additives.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,SBB (Rp. Milyar),,-303,-329,-484,155,??,109%,68%,,-658,Optimize delivery timing to concrete work zones.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,SKI (Rp. Milyar),,-27,-29,-39,10,??,107%,74%,,-58,Improve regional cost containment initiatives.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,SILOG (Rp. Milyar),,-1.86,-1.834,-1.984,150,??,99%,92%,,-3.668,Consolidate freight forwarders to optimize payload rates.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,SIII (Rp. Milyar),,-2.42,-2.594,-2.151,-443,??,107%,121%,,-5.188,Form direct supply alliances with core logistics providers.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,IKSG (Rp. Milyar),,-93,-134,-114,-20,??,144%,118%,,-268,Improve chemical raw material sourcing terms.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,UTSG (Rp. Milyar),,-272,-297,-298,1,??,109%,100%,,-594,Increase operating lifetime of excavation gear.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,KIG (Rp. Milyar),,-12,-13,-17,4,??,108%,76%,,-26,Improve industrial utilities maintenance operations.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,SMI (Rp. Milyar),,-460,-211,-429,218,??,46%,49%,,-422,Re-evaluate raw material logistics in eastern zones.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,SISI (Rp. Milyar),,-52,-40,-59,19,??,77%,68%,,-80,Insource redundant software development projects.
+NET Income,COGS NON SEMEN (Rp. Milyar),,,ELIMINASI NS (Rp. Milyar),,3.798,3.808,3.95,-142,??,100%,96%,,7.616,Automate inner-company billing and settlement cycles.
+NET Income,OPEX,,,,,-1.827,-2.053,-2.237,185,??,112%,92%,,-4.106,Strict budgetary controls on administrative and promotional spends.
+NET Income,OPEX,BBM & LISTRIK (Rp. Milyar),,,,-15,-11,-20,8,?,73%,55%,,-22,Convert distribution hubs to LED and automatic power shutoffs.
+NET Income,OPEX,TENAGA KERJA (Rp. Milyar),,,,-855,-925,-1.014,89,??,108%,91223%,,-1850,Utilize cross-departmental skillsets to avoid temp-hires.
+NET Income,OPEX,PEMELIHARAAN (Rp. Milyar),,,,-73,-60,-80,20,??,82%,75%,,-120,Optimize maintenance contracts across all regional centers.
+NET Income,OPEX,PENYUSUTAN (Rp. Milyar),,,,-316,-312,-338,26,??,99%,92%,,-624,Refine amortization periods across standard non-factory assets.
+NET Income,OPEX,G & A (Rp. Milyar),,,,-422,-525,-554,29,???,124%,95%,,-1050,Instate paperless workflows to compress general expenses.
+NET Income,OPEX,PAJAK & ASURANSI (Rp. Milyar),,,,-35,-40,-42,2,???,114%,95%,,-80,Review local business asset tax positions with experts.
+NET Income,OPEX,PROMOSI (Rp. Milyar),,,,-111,-181,-191,10,??,163%,95%,,-362,Transition traditional ads to data-driven digital channels.
+NET Income,Others Non Operasional & Tax,,,,,-574,-533,-652,119,???,93%,82%,,-1066,Refinance outstanding high-interest debt to lock in lower interest rates.
+NET Income,Others Non Operasional & Tax,BEBAN KEUANGAN (Rp. Milyar),,,,-420,-326,-412,86,??,78%,79%,,-652,Consolidate working capital lines across partner banks.
+NET Income,Others Non Operasional & Tax,SELISIH KURS & OTHERS (Rp. Milyar),,,,-75,-3,-42,40,??,4%,7%,,-6,Utilize forward currency hedging contracts.
+NET Income,Others Non Operasional & Tax,PPH BADAN (Rp. Milyar),,,,-79,-204,-197,-6,???,258%,104%,,-408,Utilize research and tax investment allowances.
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+`;
+
+        const DEFAULT_INITIATIVE_CSV = `Node Name,Strategy,Milestone,Target Date,Status
+NET Income,Optimize total system cost structure to secure a sustainable net margin across multiple units.,Establish cross-departmental cost reduction task force,Q1 2025,100%
+NET Income,Optimize total system cost structure to secure a sustainable net margin across multiple units.,Deploy central procurement analytics software suite,Q2 2025,50%
+NET Income,Optimize total system cost structure to secure a sustainable net margin across multiple units.,Achieve 4% reduction in non-operational waste streams,Q4 2025,0%
+Revenue Net Semen,Increase regional export penetration to support sustainable pricing and offset local volume contractions.,Finalize export logistics agreements for new shipping corridors,Q2 2025,50%
+Revenue Net Semen,Increase regional export penetration to support sustainable pricing and offset local volume contractions.,Acquire regional port clearance certificates for bulk load carriers,Q3 2025,100%
+VOLUME (Ribu Ton),Boost production utility and streamline inter-island logistics routes.,Optimize vessel payload schedules with predictive routing tools,Q1 2025,100%
+VOLUME (Ribu Ton),Boost production utility and streamline inter-island logistics routes.,Consolidate coastal dry bulk warehouses for seamless supply transfers,Q3 2025,30%
+ASP NET (Rp. Ribu),Optimize dynamic pricing models in key target markets.,Roll out multi-tiered corporate discount schedule limits,Q2 2025,100%
+ASP NET (Rp. Ribu),Optimize dynamic pricing models in key target markets.,Implement competitive market pricing tracking scripts,Q4 2025,15%
+Revenue Net Non Semen,Expand logistics and storage solutions business models to drive high-margin non-cement revenues.,Complete structural upgrades for secondary logistics container depots,Q2 2025,60%
+SIB (Rp. Milyar),Improve commercial sales pipeline for concrete additives.,Establish concrete additive distribution partnerships with local co-ops,Q2 2025,45%
+SBB (Rp. Milyar),Optimize ready-mix batching plant locations and delivery times.,Deploy GPS vehicle tracking software across concrete delivery mixer trucks,Q1 2025,100%
+Var Cost,Secure long-term energy contracts and transition to eco-friendly fuel alternatives.,Complete alternative biomass preprocessing mill engineering plans,Q2 2025,85%
+Var Cost,Secure long-term energy contracts and transition to eco-friendly fuel alternatives.,Increase the secondary fuel kiln utilization threshold rate to 18%,Q4 2025,0%
+Listrik,Deploy Waste Heat Recovery Systems (WHRS) at all primary kilns.,Install secondary generator exhaust heat collection ducts at kiln 4,Q3 2025,75%
+`;
+
+        // Global Design Tokens / Dimensions
+        const NODE_WIDTH = 190;
+        const NODE_HEIGHT = 65;
+        const HORIZONTAL_GAP = 40;
+        const VERTICAL_GAP = 25;
+
+        // Active State parameters
+        let treeData = null;
+        let activeCSVText = DEFAULT_CSV;
+        let activeInitiativeCSVText = DEFAULT_INITIATIVE_CSV;
+        let activeDrawerTab = 'financial'; // 'financial' or 'initiative'
+
+        let currentZoom = 1.0;
+        let panX = 40;
+        let panY = 150;
+        let isDragging = false;
+        let startX, startY;
+        let orientation = 'horizontal'; 
+        let selectedNodeId = null;
+        let nodesMap = new Map();
+        let milestonesList = []; // Parsed array of milestones
+        
+        let editingMilestoneId = null; // Track currently active inline edit
+        let isAddingMilestone = false; // Track inline additions trigger
+
+        window.onload = async function() {
+            let loadedCSV = DEFAULT_CSV;
+            let loadedInitiatives = DEFAULT_INITIATIVE_CSV;
+
+            // Fetch Financial Tree Data
+            try {
+                const jupyterToken = "1e097ffa81ba8da4acf70c5dae6f2a7a2ba872bf5fd89dc9"; 
+                const response = await fetch('Net Income - Copy.csv?token=' + jupyterToken);
+                if (response.ok) {
+                    loadedCSV = await response.text();
+                }
+            } catch (err) {
+                loadedCSV = DEFAULT_CSV;
+            }
+
+            // Fetch Strategic Initiatives
+            try {
+                const jupyterToken = "1e097ffa81ba8da4acf70c5dae6f2a7a2ba872bf5fd89dc9"; 
+                const response = await fetch('Strategic Initiative.csv?token=' + jupyterToken);
+                if (response.ok) {
+                    loadedInitiatives = await response.text();
+                }
+            } catch (err) {
+                loadedInitiatives = DEFAULT_INITIATIVE_CSV;
+            }
+
+            activeCSVText = loadedCSV;
+            activeInitiativeCSVText = loadedInitiatives;
+
+            const csvEditor = document.getElementById('csvEditor');
+            if (csvEditor) {
+                csvEditor.value = activeCSVText;
+            }
+            
+            // Initial parse of both documents
+            parseStrategicInitiatives(activeInitiativeCSVText);
+            parseAndRender(activeCSVText);
+            collapseAll();
+            resetView();
+
+            // Setup mouse & drag panning behaviors
+            const container = document.getElementById('viewContainer');
+            if (container) {
+                container.addEventListener('click', (e) => {
+                    if (e.target.closest('.node-card') || e.target.closest('button') || e.target.closest('#rightDetailPane') || e.target.closest('#dataDrawer') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
+                    closeRightDetailPane();
+                });
+
+                container.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.node-card') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
+                    isDragging = true;
+                    container.style.cursor = 'grabbing';
+                    startX = e.clientX - panX;
+                    startY = e.clientY - panY;
+                });
+
+                container.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const zoomFactor = 1.1;
+                    const rect = container.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    const xs = (mouseX - panX) / currentZoom;
+                    const ys = (mouseY - panY) / currentZoom;
+                    if (e.deltaY < 0) {
+                        currentZoom = Math.min(currentZoom * zoomFactor, 2.5);
+                    } else {
+                        currentZoom = Math.max(currentZoom / zoomFactor, 0.25);
+                    }
+                    panX = mouseX - xs * currentZoom;
+                    panY = mouseY - ys * currentZoom;
+                    applyTransform();
+                    updateZoomIndicator();
+                }, { passive: false });
+            }
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+                if (container) container.style.cursor = 'grab';
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                panX = e.clientX - startX;
+                panY = e.clientY - startY;
+                applyTransform();
+            });
+
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelect);
+            }
+
+            const dropzone = document.getElementById('dropzone');
+            if (dropzone) {
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.add('border-indigo-500', 'bg-indigo-50/40');
+                });
+                dropzone.addEventListener('dragleave', () => {
+                    dropzone.classList.remove('border-indigo-500', 'bg-indigo-50/40');
+                });
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-indigo-500', 'bg-indigo-50/40');
+                    if (e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        readFile(file);
+                    }
+                });
+            }
+
+            const searchInput = document.getElementById('nodeSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', handleSearch);
+            }
+            window.addEventListener('resize', () => { drawConnectors(); });
+        };
+
+        function switchDrawerTab(tabName) {
+            activeDrawerTab = tabName;
+            const tabFin = document.getElementById('tabFinancial');
+            const tabInit = document.getElementById('tabInitiative');
+            const editor = document.getElementById('csvEditor');
+            const editorLabel = document.getElementById('editorLabel');
+
+            if (tabName === 'financial') {
+                tabFin.className = "flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-white text-indigo-700 shadow-sm";
+                tabInit.className = "flex-1 py-2 text-xs font-semibold rounded-lg text-slate-600 transition-all hover:text-slate-900";
+                editorLabel.innerText = "Active Financial Database";
+                editor.value = activeCSVText;
+            } else {
+                tabInit.className = "flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-white text-indigo-700 shadow-sm";
+                tabFin.className = "flex-1 py-2 text-xs font-semibold rounded-lg text-slate-600 transition-all hover:text-slate-900";
+                editorLabel.innerText = "Active Strategic Initiative Milestones Database";
+                editor.value = activeInitiativeCSVText;
+            }
+        }
+
+        function applyTransform() {
+            const canvas = document.getElementById('treeCanvas');
+            if (canvas) {
+                canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
+            }
+        }
+
+        function updateZoomIndicator() {
+            const indicator = document.getElementById('zoomIndicator');
+            if (indicator) {
+                indicator.innerText = Math.round(currentZoom * 100) + '%';
+            }
+        }
+
+        function zoomIn() {
+            currentZoom = Math.min(currentZoom * 1.15, 2.5);
+            applyTransform();
+            updateZoomIndicator();
+        }
+
+        function zoomOut() {
+            currentZoom = Math.max(currentZoom / 1.15, 0.25);
+            applyTransform();
+            updateZoomIndicator();
+        }
+
+        function resetView() {
+            currentZoom = 1.0;
+            const container = document.getElementById('viewContainer');
+            if (!container) return;
+            
+            renderTree();
+            
+            if (treeData) {
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+                
+                const rootCenterX = treeData.x + (NODE_WIDTH / 2);
+                const rootCenterY = treeData.y + (NODE_HEIGHT / 2);
+                
+                panX = (containerWidth / 2) - (rootCenterX * currentZoom);
+                panY = (containerHeight / 2) - (rootCenterY * currentZoom);
+            } else {
+                panX = 40;
+                panY = 150;
+            }
+            
+            applyTransform();
+            updateZoomIndicator();
+        }
+        
+        function toggleLeftSidebar() {
+            const sidebar = document.getElementById('leftSidebar');
+            if (sidebar) {
+                sidebar.classList.toggle('-translate-x-full');
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) readFile(file);
+        }
+
+        function readFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const csvEditor = document.getElementById('csvEditor');
+                if (csvEditor) {
+                    csvEditor.value = text;
+                }
+                if (activeDrawerTab === 'financial') {
+                    activeCSVText = text;
+                    parseAndRender(text);
+                } else {
+                    activeInitiativeCSVText = text;
+                    parseStrategicInitiatives(text);
+                    if (selectedNodeId) {
+                        showNodeDetails(selectedNodeId);
+                    }
+                }
+                showFeedbackToast("New dataset loaded successfully into workspace!");
+            };
+            reader.readAsText(file);
+        }
+
+        function showFeedbackToast(message) {
+            const toast = document.createElement('div');
+            toast.className = "fixed top-5 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-xs font-bold py-3 px-6 rounded-xl shadow-2xl z-50 flex items-center gap-2 transition-all duration-300 opacity-0";
+            toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> <span>${message}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.classList.remove('opacity-0'); }, 50);
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        function toggleDataDrawer() {
+            const drawer = document.getElementById('dataDrawer');
+            if (drawer) {
+                drawer.classList.toggle('translate-x-full');
+            }
+        }
+
+        function restoreDefaultData() {
+            const csvEditor = document.getElementById('csvEditor');
+            if (activeDrawerTab === 'financial') {
+                activeCSVText = DEFAULT_CSV;
+                if (csvEditor) csvEditor.value = DEFAULT_CSV;
+                parseAndRender(DEFAULT_CSV);
+                showFeedbackToast("Original financial tree restored!");
+            } else {
+                activeInitiativeCSVText = DEFAULT_INITIATIVE_CSV;
+                if (csvEditor) csvEditor.value = DEFAULT_INITIATIVE_CSV;
+                parseStrategicInitiatives(DEFAULT_INITIATIVE_CSV);
+                if (selectedNodeId) showNodeDetails(selectedNodeId);
+                showFeedbackToast("Strategic Initiative milestones restored!");
+            }
+        }
+
+        function applyCSVChanges() {
+            const csvEditor = document.getElementById('csvEditor');
+            if (csvEditor) {
+                const text = csvEditor.value;
+                if (activeDrawerTab === 'financial') {
+                    activeCSVText = text;
+                    parseAndRender(text);
+                } else {
+                    activeInitiativeCSVText = text;
+                    parseStrategicInitiatives(text);
+                    if (selectedNodeId) showNodeDetails(selectedNodeId);
+                }
+                toggleDataDrawer();
+                showFeedbackToast("Workspace database updated!");
+            }
+        }
+
+        function parseStrategicInitiatives(csvText) {
+            milestonesList = [];
+            const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            if (lines.length < 2) return;
+
+            // Header line sniffed to dynamically determine delimiter
+            const fileDelimiter = lines[0].includes(';') ? ';' : ',';
+            const header = parseCSVRow(lines[0], fileDelimiter);
+            const nodeNameIdx = header.findIndex(h => h.toLowerCase().trim() === 'node name');
+            const strategyIdx = header.findIndex(h => h.toLowerCase().trim() === 'strategy');
+            const milestoneIdx = header.findIndex(h => h.toLowerCase().trim() === 'milestone');
+            const dateIdx = header.findIndex(h => h.toLowerCase().trim() === 'target date' || h.toLowerCase().trim() === 'timeline');
+            const statusIdx = header.findIndex(h => h.toLowerCase().trim() === 'status');
+
+            for (let i = 1; i < lines.length; i++) {
+                const row = parseCSVRow(lines[i], fileDelimiter);
+                if (row.length === 0) continue;
+
+                const nodeName = nodeNameIdx !== -1 ? row[nodeNameIdx] : "";
+                const strategy = strategyIdx !== -1 ? row[strategyIdx] : "";
+                const milestone = milestoneIdx !== -1 ? row[milestoneIdx] : "";
+                const targetDate = dateIdx !== -1 ? row[dateIdx] : "";
+                const status = statusIdx !== -1 ? row[statusIdx] : "";
+
+                if (milestone) {
+                    milestonesList.push({
+                        id: 'milestone-' + Math.random().toString(36).substr(2, 9),
+                        nodeName: nodeName ? nodeName.trim() : "",
+                        strategy: strategy ? strategy.trim() : "",
+                        milestone: milestone.trim(),
+                        targetDate: targetDate ? targetDate.trim() : "TBD",
+                        status: status ? status.trim() : "Not Started"
+                    });
+                }
+            }
+        }
+
+        function serializeStrategicInitiatives() {
+            const header = "Node Name,Strategy,Milestone,Target Date,Status";
+            const escape = (val) => {
+                const str = (val || "").toString().trim();
+                if (str.includes(',') || str.includes(';') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+            const rows = milestonesList.map(m => {
+                return [escape(m.nodeName), escape(m.strategy), escape(m.milestone), escape(m.targetDate), escape(m.status)].join(',');
+            });
+            return [header, ...rows].join('\n');
+        }
+
+        function parseAndRender(csvText, skipResetView = false) {
+            const savedStates = new Map();
+            if (nodesMap && nodesMap.size > 0) {
+                nodesMap.forEach((node, id) => {
+                    savedStates.set(id, { expanded: node.expanded, visible: node.visible });
+                });
+            }
+
+            nodesMap.clear();
+            const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            if (lines.length < 2) return;
+
+            // Detect delimiter consistently once from the first line header
+            const fileDelimiter = lines[0].includes(';') ? ';' : ',';
+            const header = parseCSVRow(lines[0], fileDelimiter);
+            
+            const colIndices = {};
+            for (let i = 1; i <= 6; i++) {
+                colIndices[`Level ${i}`] = header.findIndex(h => h.toLowerCase().trim() === `level ${i}`);
+            }
+            colIndices['Kontribusi'] = header.findIndex(h => h.toLowerCase().trim() === 'kontribusi');
+            colIndices['2025'] = header.findIndex(h => h.toLowerCase().trim() === '2025');
+            colIndices['Real'] = header.findIndex(h => h.toLowerCase().trim() === 'real');
+            colIndices['RKAP'] = header.findIndex(h => h.toLowerCase().trim() === 'rkap');
+            colIndices['Outcome'] = header.findIndex(h => h.toLowerCase().trim() === 'outcome');
+            colIndices['Strategy'] = header.findIndex(h => h.toLowerCase().trim() === 'strategy');
+
+            const rootNode = {
+                id: "root-origin",
+                name: "Total Financial Scope",
+                level: 0,
+                value: 0,
+                children: [],
+                visible: true,
+                expanded: true,
+                parent: null
+            };
+
+            for (let r = 1; r < lines.length; r++) {
+                const row = parseCSVRow(lines[r], fileDelimiter);
+                if (row.length === 0) continue;
+                const path = [];
+                for (let lvl = 1; lvl <= 6; lvl++) {
+                    const idx = colIndices[`Level ${lvl}`];
+                    if (idx !== -1 && row[idx] && row[idx].trim() !== '') {
+                        path.push({ name: row[idx].trim(), level: lvl });
+                    }
+                }
+                const valueIdx = colIndices['Kontribusi'];
+                let kontribusiVal = 0;
+                if (valueIdx !== -1 && row[valueIdx]) {
+                    kontribusiVal = parseFloat(row[valueIdx].replace(/[^0-9.-]/g, '')) || 0;
+                }
+                const val2025 = (colIndices['2025'] !== -1) ? row[colIndices['2025']] : '';
+                const valReal = (colIndices['Real'] !== -1) ? row[colIndices['Real']] : '';
+                const valRKAP = (colIndices['RKAP'] !== -1) ? row[colIndices['RKAP']] : '';
+                const valOutcome = (colIndices['Outcome'] !== -1 && row[colIndices['Outcome']]) ? row[colIndices['Outcome']] : '';
+                const valStrategy = (colIndices['Strategy'] !== -1 && row[colIndices['Strategy']]) ? row[colIndices['Strategy']] : '';
+
+                if (path.length === 0) continue;
+                let currentParent = rootNode;
+                for (let k = 0; k < path.length; k++) {
+                    const item = path[k];
+                    const isLeaf = (k === path.length - 1);
+                    const parentPathId = currentParent.id === "root-origin" ? "" : currentParent.id + "->";
+                    const id = parentPathId + item.name;
+                    let existingNode = currentParent.children.find(c => c.name === item.name);
+                    
+                    if (!existingNode) {
+                        const history = savedStates.get(id);
+                        existingNode = {
+                            id: id,
+                            name: item.name,
+                            level: item.level,
+                            value: isLeaf ? kontribusiVal : 0,
+                            y2025: val2025,
+                            real: valReal,
+                            rkap: valRKAP,
+                            outcome: valOutcome,
+                            strategy: valStrategy,
+                            children: [],
+                            visible: history ? history.visible : true,
+                            expanded: history ? history.expanded : true,
+                            parent: currentParent,
+                            isExplicitLeaf: isLeaf
+                        };
+                        currentParent.children.push(existingNode);
+                    } else if (isLeaf) {
+                        existingNode.value = kontribusiVal;
+                        existingNode.y2025 = val2025;
+                        existingNode.real = valReal;
+                        existingNode.rkap = valRKAP;
+                        if (valOutcome) existingNode.outcome = valOutcome;
+                        if (valStrategy) existingNode.strategy = valStrategy;
+                        existingNode.isExplicitLeaf = true;
+                    }
+                    currentParent = existingNode;
+                }
+            }
+            if (rootNode.children.length === 1) {
+                treeData = rootNode.children[0];
+                treeData.parent = null;
+            } else if (rootNode.children.length > 1) {
+                treeData = rootNode;
+            } else {
+                return;
+            }
+            calculateAggregations(treeData);
+            buildNodesMap(treeData);
+            renderTree();
+            
+            if (!skipResetView) {
+                resetView();
+            }
+        }
+
+        // Refactored parseCSVRow to optionally accept and enforce a unified delimiter context
+        function parseCSVRow(line, delimiter) {
+            if (!delimiter) {
+                delimiter = line.includes(';') ? ';' : ',';
+            }
+            let result = [];
+            let inQuotes = false;
+            let current = "";
+            for (let i = 0; i < line.length; i++) {
+                let char = line[i];
+                if (char === '"' || char === "'") {
+                    inQuotes = !inQuotes;
+                } else if (char === delimiter && !inQuotes) {
+                    result.push(current);
+                    current = "";
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            return result;
+        }
+
+        function calculateAggregations(node) {
+            if (!node) return 0;
+            if (node.children && node.children.length > 0) {
+                let sum = 0;
+                node.children.forEach(child => {
+                    sum += calculateAggregations(child);
+                });
+                node.value = sum;
+            }
+            return node.value;
+        }
+
+        function getNodeEmoji(name) {
+            const n = name.toUpperCase();
+            if (n.includes("NET INCOME")) return "💵";
+            if (n.includes("REVENUE")) return "📈";
+            if (n.includes("INCOME")) return "💰";
+            if (n.includes("COGS") || n.includes("COST")) return "📉";
+            if (n.includes("SEMEN")) return "🏗️";
+            if (n.includes("BAHAN BAKU")) return "🪵";
+            if (n.includes("BAHAN BAKAR")) return "🔥";
+            if (n.includes("LISTRIK")) return "⚡";
+            if (n.includes("TENAGA KERJA")) return "👷";
+            if (n.includes("OPEX")) return "🛠️";
+            if (n.includes("PENYUSUTAN")) return "⏳";
+            if (n.includes("PAJAK") || n.includes("ASURANSI")) return "🏛️";
+            if (n.includes("KEUANGAN")) return "🏦";
+            return "📊";
+        }
+
+        function buildNodesMap(node) {
+            if (!node) return;
+            nodesMap.set(node.id, node);
+            if (node.children) node.children.forEach(c => buildNodesMap(c));
+        }
+
+        function renderTree() {
+            const nodesLayer = document.getElementById('nodesLayer');
+            if (!nodesLayer) return;
+            nodesLayer.innerHTML = '';
+            if (!treeData) return;
+            
+            const levels = [];
+            function traverseForLevels(node, depth) {
+                if (!node || !node.visible) return;
+                if (!levels[depth]) levels[depth] = [];
+                levels[depth].push(node);
+                if (node.children && node.expanded) {
+                    node.children.forEach(child => traverseForLevels(child, depth + 1));
+                }
+            }
+            traverseForLevels(treeData, 0);
+
+            if (orientation === 'horizontal') {
+                let currentX = 0;
+                levels.forEach((levelNodes, d) => {
+                    const totalLvlHeight = levelNodes.length * (NODE_HEIGHT + VERTICAL_GAP);
+                    levelNodes.forEach((node, i) => {
+                        const yOffset = (i * (NODE_HEIGHT + VERTICAL_GAP)) - (totalLvlHeight / 2);
+                        node.x = currentX;
+                        node.y = yOffset;
+                    });
+                    currentX += (NODE_WIDTH + HORIZONTAL_GAP);
+                });
+            } else {
+                let currentY = 0;
+                levels.forEach((levelNodes, d) => {
+                    const totalLvlWidth = levelNodes.length * (NODE_WIDTH + HORIZONTAL_GAP);
+                    levelNodes.forEach((node, i) => {
+                        const xOffset = (i * (NODE_WIDTH + HORIZONTAL_GAP)) - (totalLvlWidth / 2);
+                        node.x = xOffset;
+                        node.y = currentY;
+                    });
+                    currentY += (NODE_HEIGHT + VERTICAL_GAP + 60);
+                });
+            }
+
+            nodesMap.forEach((node) => {
+                if (!node.visible) return;
+                const card = document.createElement('div');
+                card.id = `card-${node.id}`;
+                
+                card.className = `absolute rounded-xl border bg-white shadow-sm node-card cursor-pointer py-[5px] px-[11px] select-none ${selectedNodeId === node.id ? 'ring-2 ring-indigo-500 border-indigo-500 shadow-md' : 'border-slate-200'}`;
+                card.style.width = `${NODE_WIDTH}px`;
+                card.style.height = `${NODE_HEIGHT}px`;
+                card.style.left = `${node.x}px`;
+                card.style.top = `${node.y}px`;
+                
+                const isPositive = node.value >= 0;
+                const trendBgColor = isPositive ? 'bg-emerald-500' : 'bg-rose-500';
+                const trendTextColor = isPositive ? 'text-emerald-600' : 'text-rose-600';
+                
+                const formattedVal = (node.value >= 0 ? '+' : '') + Math.round(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                
+                card.innerHTML = `
+                    <div class="flex h-full flex-col justify-between relative gap-[2px] py-1">
+                        <div class="absolute -left-[11px] -top-[5px] -bottom-[5px] w-1 ${trendBgColor} rounded-l-xl"></div>
+                        <div class="flex items-start justify-between gap-1">
+                            <h4 class="font-bold text-slate-800 text-[10px] leading-tight truncate max-w-[150px]" title="${node.name}">${getNodeEmoji(node.name)} ${node.name}</h4>
+                            <span class="text-[9px] font-bold text-slate-400">L${node.level}</span>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-1.5 mt-auto">
+                            <div class="text-[12px] font-black ${trendTextColor}" title="Contribution Score">${formattedVal}</div>
+                            <div class="text-[9px] text-slate-500 font-bold" title="Real Value">Real: <span class="text-slate-800 font-extrabold">${node.real || '-'}</span></div>
+                            <div class="text-[9px] text-slate-500 font-bold" title="RKAP Value">RKAP: <span class="text-slate-800 font-extrabold">${node.rkap || '-'}</span></div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="event.stopPropagation(); showNodeDetails('${node.id}')" class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full strategic-btn flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-md border-[1px] border-white z-20" title="View Outcome & Strategy">
+                        <i class="fa-solid fa-plus text-[6px]"></i>
+                    </button>
+
+                    ${node.children && node.children.length > 0 ? `
+                        <button onclick="event.stopPropagation(); toggleNodeCollapse('${node.id}')" class="absolute -bottom-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-indigo-600 flex items-center justify-center border border-slate-200 transition-all shadow-sm z-10">
+                            <i class="fa-solid ${node.expanded ? 'fa-minus' : 'fa-plus'} text-[8px]"></i>
+                        </button>
+                    ` : ''}
+                `;
+                card.addEventListener('click', () => { selectNode(node.id); });
+                nodesLayer.appendChild(card);
+            });
+            setTimeout(drawConnectors, 50);
+        }
+
+        function drawConnectors() {
+            const svg = document.getElementById('svgLines');
+            if (!svg) return;
+            svg.innerHTML = '';
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            nodesMap.forEach(node => {
+                if (!node.visible) return;
+                minX = Math.min(minX, node.x);
+                maxX = Math.max(maxX, node.x);
+                minY = Math.min(minY, node.y);
+                maxY = Math.max(maxY, node.y);
+            });
+            if (minX === Infinity) return;
+            
+            const padding = 200;
+            const width = (maxX - minX) + NODE_WIDTH + (padding * 2);
+            const height = (maxY - minY) + NODE_HEIGHT + (padding * 2);
+            svg.style.width = `${width}px`;
+            svg.style.height = `${height}px`;
+            
+            const offsetX = minX - padding, offsetY = minY - padding;
+            svg.style.left = `${offsetX}px`;
+            svg.style.top = `${offsetY}px`;
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            
+            nodesMap.forEach(node => {
+                if (!node.visible || !node.expanded || !node.children) return;
+                node.children.forEach(child => {
+                    if (!child.visible) return;
+                    let startX, startY, endX, endY;
+                    if (orientation === 'horizontal') {
+                        startX = node.x + NODE_WIDTH - offsetX;
+                        startY = node.y + (NODE_HEIGHT / 2) - offsetY;
+                        endX = child.x - offsetX;
+                        endY = child.y + (NODE_HEIGHT / 2) - offsetY;
+                    } else {
+                        startX = node.x + (NODE_WIDTH / 2) - offsetX;
+                        startY = node.y + NODE_HEIGHT - offsetY;
+                        endX = child.x + (NODE_WIDTH / 2) - offsetX;
+                        endY = child.y - offsetY;
+                    }
+                    
+                    let pathData = '';
+                    if (orientation === 'horizontal') {
+                        const controlOffset = Math.abs(endX - startX) * 0.45;
+                        pathData = `M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}`;
+                    } else {
+                        const controlOffset = Math.abs(endY - startY) * 0.45;
+                        pathData = `M ${startX} ${startY} C ${startX} ${startY + controlOffset}, ${endX} ${endY - controlOffset}, ${endX} ${endY}`;
+                    }
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', pathData);
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('stroke', '#cbd5e1');
+                    path.setAttribute('stroke-width', '1.5');
+                    path.setAttribute('class', 'connector-line');
+                    svg.appendChild(path);
+                });
+            });
+        }
+
+        function toggleNodeCollapse(nodeId) {
+            const node = nodesMap.get(nodeId);
+            if (!node) return;
+            
+            node.expanded = !node.expanded;
+            
+            if (node.expanded && node.parent && node.parent.children) {
+                node.parent.children.forEach(sibling => {
+                    if (sibling.id !== node.id) {
+                        sibling.expanded = false;
+                    }
+                });
+            }
+            
+            function refreshVisibility(currNode, isParentExpandedAndVisible) {
+                if (!currNode.children) return;
+                currNode.children.forEach(c => {
+                    c.visible = isParentExpandedAndVisible && currNode.expanded;
+                    refreshVisibility(c, c.visible);
+                });
+            }
+            
+            if (treeData) {
+                refreshVisibility(treeData, treeData.visible);
+            }
+            
+            renderTree();
+        }
+
+        function setOrientation(mode) {
+            orientation = mode;
+            const btnHor = document.getElementById('btnHorizontal');
+            const btnVer = document.getElementById('btnVertical');
+            if (btnHor && btnVer) {
+                if (mode === 'horizontal') {
+                    btnHor.className = "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all bg-white text-indigo-700 shadow-sm";
+                    btnVer.className = "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg text-slate-600 transition-all hover:text-slate-900";
+                } else {
+                    btnVer.className = "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all bg-white text-indigo-700 shadow-sm";
+                    btnHor.className = "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg text-slate-600 transition-all hover:text-slate-900";
+                }
+            }
+            renderTree();
+            resetView();
+        }
+
+        function expandToLevel(levelNum) {
+            const buttons = document.querySelectorAll('.level-btn');
+            buttons.forEach((btn, idx) => {
+                if (idx + 1 === levelNum) {
+                    btn.className = "level-btn py-1.5 px-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-lg text-[10px] transition-all border border-indigo-100";
+                } else {
+                    btn.className = "level-btn py-1.5 px-2 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium rounded-lg text-[10px] transition-all border border-slate-200";
+                }
+            });
+            function applyDepthCollapse(node) {
+                if (!node) return;
+                node.expanded = (node.level < levelNum);
+                node.visible = (node.level <= levelNum);
+                if (node.children) node.children.forEach(child => applyDepthCollapse(child));
+            }
+            applyDepthCollapse(treeData);
+            renderTree();
+            resetView();
+        }
+
+        function saveCSVToJupyter(csvContent, filename = "Net Income - Copy.csv") {
+            if (!csvContent) {
+                console.error("No CSV content provided to save.");
+                return;
+            }
+
+            const token = "1e097ffa81ba8da4acf70c5dae6f2a7a2ba872bf5fd89dc9"; 
+            const encodedFilename = encodeURIComponent(filename);
+            const filePath = `Renstra/Project%20Financial%20Tree%20Explorer/${encodedFilename}`;
+            const url = `/api/contents/${filePath}${token ? '?token=' + token : ''}`;
+
+            const payload = {
+                name: filename,
+                path: `Renstra/Project Financial Tree Explorer/${filename}`,
+                type: "file",
+                format: "text",
+                content: csvContent
+            };
+
+            fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `token ${token}` })
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => {
+                if (response.ok) {
+                    showFeedbackToast(`CSV successfully saved back to ${filename}!`);
+                    console.log(`${filename} saved to Jupyter successfully!`);
+                } else {
+                    throw new Error(`Server returned status: ${response.status}`);
+                }
+            })
+            .catch(error => {
+                console.error("Error saving CSV to Jupyter:", error);
+            });
+        }
+
+        function expandAll() {
+            nodesMap.forEach(node => { node.expanded = true; node.visible = true; });
+            renderTree();
+            resetView();
+        }
+
+        function collapseAll() {
+            if (!treeData) return;
+            nodesMap.forEach(node => { if (node.id !== treeData.id) node.visible = false; node.expanded = false; });
+            renderTree();
+            resetView();
+        }
+
+        function handleSearch() {
+            const searchInput = document.getElementById('nodeSearch');
+            if (!searchInput) return;
+            const query = searchInput.value.toLowerCase().trim();
+            if (query === '') { renderTree(); return; }
+            nodesMap.forEach(node => {
+                if (node.name.toLowerCase().includes(query)) {
+                    let parent = node.parent;
+                    while (parent) { parent.expanded = true; parent.visible = true; parent = parent.parent; }
+                    node.visible = true;
+                }
+            });
+            renderTree();
+        }
+
+        function selectNode(nodeId) {
+            selectedNodeId = nodeId;
+            renderTree();
+            const node = nodesMap.get(nodeId);
+            const placeholder = document.getElementById('detailsPlaceholder');
+            const card = document.getElementById('detailsCard');
+            if (!placeholder || !card) return;
+            
+            if (!node) {
+                placeholder.classList.remove('hidden');
+                card.classList.add('hidden');
+                return;
+            }
+            placeholder.classList.add('hidden');
+            card.classList.remove('hidden');
+            
+            const roundedValue = Math.round(node.value);
+            const formattedVal = (roundedValue >= 0 ? '+' : '') + roundedValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+            const cardContent = `
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                    <h3 class="text-sm font-black text-slate-900 leading-snug">${getNodeEmoji(node.name)} ${node.name}</h3>
+                    
+                    <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-center">
+                        <div class="flex flex-col items-start">
+                            <span class="text-[13px] font-black text-indigo-600">${formattedVal}</span>
+                        </div>
+                        <div class="flex flex-col items-center border-l border-slate-200 pl-3">
+                            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">REAL</span>
+                            <span class="font-mono text-xs font-bold text-slate-800">${node.real || '0'}</span>
+                        </div>
+                        <div class="flex flex-col items-end border-l border-slate-200 pl-3">
+                            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">RKAP</span>
+                            <span class="font-mono text-xs font-bold text-slate-800">${node.rkap || '0'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            card.innerHTML = cardContent;
+        }
+
+        function startEditMilestone(mId) {
+            editingMilestoneId = mId;
+            isAddingMilestone = false;
+            if (selectedNodeId) showNodeDetails(selectedNodeId);
+        }
+
+        function cancelEditMilestone() {
+            editingMilestoneId = null;
+            if (selectedNodeId) showNodeDetails(selectedNodeId);
+        }
+
+        function saveEditMilestone(mId) {
+            const descInput = document.getElementById(`editMilestoneDesc-${mId}`);
+            const dateInput = document.getElementById(`editMilestoneDate-${mId}`);
+            const statusInput = document.getElementById(`editMilestoneStatus-${mId}`);
+            
+            if (!descInput || !dateInput || !statusInput) return;
+            
+            const milestone = milestonesList.find(m => m.id === mId);
+            if (milestone) {
+                milestone.milestone = descInput.value.trim();
+                milestone.targetDate = dateInput.value.trim();
+                
+                const statusVal = parseInt(statusInput.value) || 0;
+                milestone.status = Math.min(100, Math.max(0, statusVal)) + "%";
+                
+                activeInitiativeCSVText = serializeStrategicInitiatives();
+                
+                // Sync with open editor if displaying initiatives
+                const csvEditor = document.getElementById('csvEditor');
+                if (csvEditor && activeDrawerTab === 'initiative') {
+                    csvEditor.value = activeInitiativeCSVText;
+                }
+                
+                saveCSVToJupyter(activeInitiativeCSVText, "Strategic Initiative.csv");
+                showFeedbackToast("Milestone updated successfully!");
+            }
+            editingMilestoneId = null;
+            if (selectedNodeId) showNodeDetails(selectedNodeId);
+        }
+
+        function startAddMilestone() {
+            isAddingMilestone = true;
+            editingMilestoneId = null;
+            if (selectedNodeId) showNodeDetails(selectedNodeId);
+        }
+
+        function cancelAddMilestone() {
+            isAddingMilestone = false;
+            if (selectedNodeId) showNodeDetails(selectedNodeId);
+        }
+
+        function saveNewMilestone(nodeName, strategy) {
+            const descInput = document.getElementById('newMilestoneDesc');
+            const dateInput = document.getElementById('newMilestoneDate');
+            const statusInput = document.getElementById('newMilestoneStatus');
+            
+            if (!descInput) return;
+            const desc = descInput.value.trim();
+            if (!desc) {
+                showFeedbackToast("Milestone description cannot be empty!");
+                return;
+            }
+            
+            const targetDate = dateInput ? dateInput.value.trim() : "TBD";
+            
+            const statusVal = parseInt(statusInput ? statusInput.value : "0") || 0;
+            const status = Math.min(100, Math.max(0, statusVal)) + "%";
+            
+            milestonesList.push({
+                id: 'milestone-' + Math.random().toString(36).substr(2, 9),
+                nodeName: nodeName,
+                strategy: strategy,
+                milestone: desc,
+                targetDate: targetDate || "TBD",
+                status: status
+            });
+            
+            activeInitiativeCSVText = serializeStrategicInitiatives();
+            
+            // Sync with open editor if displaying initiatives
+            const csvEditor = document.getElementById('csvEditor');
+            if (csvEditor && activeDrawerTab === 'initiative') {
+                csvEditor.value = activeInitiativeCSVText;
+            }
+            
+            saveCSVToJupyter(activeInitiativeCSVText, "Strategic Initiative.csv");
+            showFeedbackToast("New milestone added successfully!");
+            isAddingMilestone = false;
+            if (selectedNodeId) showNodeDetails(selectedNodeId);
+        }
+
+        function deleteMilestone(mId) {
+            const milestone = milestonesList.find(m => m.id === mId);
+            if (!milestone) return;
+            
+            milestonesList = milestonesList.filter(m => m.id !== mId);
+            activeInitiativeCSVText = serializeStrategicInitiatives();
+            
+            // Sync with open editor if displaying initiatives
+            const csvEditor = document.getElementById('csvEditor');
+            if (csvEditor && activeDrawerTab === 'initiative') {
+                csvEditor.value = activeInitiativeCSVText;
+            }
+            
+            saveCSVToJupyter(activeInitiativeCSVText, "Strategic Initiative.csv");
+            showFeedbackToast("Milestone deleted successfully!");
+            if (selectedNodeId) showNodeDetails(selectedNodeId);
+        }
+
+        function showNodeDetails(nodeId) {
+            const node = nodesMap.get(nodeId);
+            if (!node) return;
+
+            selectedNodeId = nodeId;
+            renderTree();
+
+            const rawOutcome = node.outcome && node.outcome.toString().trim() !== '' ? node.outcome : null;
+            const rawStrategy = node.strategy && node.strategy.toString().trim() !== '' ? node.strategy : null;
+
+            const finalOutcome = rawOutcome || "No target objective defined yet. Set up standard Key Performance Indicators (KPIs) inside your source CSV database to outline measurable target values.";
+            const finalStrategy = rawStrategy || "No detailed strategy defined. Leverage structural framework models to allocate resources and control operational variables.";
+
+            const matchingMilestones = milestonesList.filter(m => {
+                const matchByName = m.nodeName && m.nodeName.toLowerCase().trim() === node.name.toLowerCase().trim();
+                const matchByStrategy = m.strategy && node.strategy && m.strategy.toLowerCase().trim() === node.strategy.toLowerCase().trim();
+                return matchByName || matchByStrategy;
+            });
+
+            let milestonesHTML = `
+                <div class="mt-4 pt-4 border-t border-indigo-100/60 space-y-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center shadow-sm">
+                                <i class="fa-solid fa-list-check text-xs"></i>
+                            </div>
+                            <h5 class="text-xs font-bold text-indigo-950 uppercase tracking-wider">Milestones & Action Items</h5>
+                        </div>
+                        <button onclick="startAddMilestone()" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold transition-all flex items-center gap-1 bg-indigo-100/60 hover:bg-indigo-100 px-2.5 py-1 rounded-lg">
+                            <i class="fa-solid fa-plus text-[9px]"></i> Add Milestone
+                        </button>
+                    </div>
+            `;
+
+            if (isAddingMilestone) {
+                milestonesHTML += `
+                    <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 shadow-sm space-y-2">
+                        <p class="text-[10px] font-bold text-indigo-950 uppercase tracking-wider">New Milestone Entry</p>
+                        <input type="text" id="newMilestoneDesc" placeholder="Milestone description..." class="w-full p-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 block">Target Date</label>
+                                <input type="text" id="newMilestoneDate" placeholder="Q1 2025" class="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 block">Status (%)</label>
+                                <div class="relative">
+                                    <input type="number" id="newMilestoneStatus" min="0" max="100" value="0" class="w-full pr-6 p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-extrabold">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-1.5 pt-1">
+                            <button onclick="cancelAddMilestone()" class="text-slate-500 hover:text-slate-700 text-[10px] font-bold bg-slate-100 px-2.5 py-1 rounded-md transition-all">Cancel</button>
+                            <button onclick="saveNewMilestone('${node.name.replace(/'/g, "\\'")}', '${(node.strategy || '').replace(/'/g, "\\'")}')" class="text-white hover:bg-indigo-700 text-[10px] font-bold bg-indigo-600 px-2.5 py-1 rounded-md transition-all">Save</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (matchingMilestones.length > 0) {
+                milestonesHTML += `<div class="space-y-2">`;
+                matchingMilestones.forEach(m => {
+                    const pctVal = parseInt(m.status) || 0;
+                    
+                    if (editingMilestoneId === m.id) {
+                        milestonesHTML += `
+                            <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 shadow-sm space-y-2">
+                                <p class="text-[10px] font-bold text-indigo-950 uppercase tracking-wider">Edit Milestone Entry</p>
+                                <input type="text" id="editMilestoneDesc-${m.id}" value="${m.milestone.replace(/"/g, '&quot;')}" class="w-full p-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-[9px] font-bold text-slate-400 block">Target Date</label>
+                                        <input type="text" id="editMilestoneDate-${m.id}" value="${m.targetDate.replace(/"/g, '&quot;')}" class="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="text-[9px] font-bold text-slate-400 block">Status (%)</label>
+                                        <div class="relative">
+                                            <input type="number" id="editMilestoneStatus-${m.id}" min="0" max="100" value="${pctVal}" class="w-full pr-6 p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-extrabold">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end gap-1.5 pt-1">
+                                    <button onclick="cancelEditMilestone()" class="text-slate-500 hover:text-slate-700 text-[10px] font-bold bg-slate-100 px-2.5 py-1 rounded-md transition-all">Cancel</button>
+                                    <button onclick="saveEditMilestone('${m.id}')" class="text-white hover:bg-indigo-700 text-[10px] font-bold bg-indigo-600 px-2.5 py-1 rounded-md transition-all">Save</button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        let statusBg = "bg-slate-50 text-slate-600 border border-slate-200";
+                        let dotColor = "bg-slate-400";
+                        if (pctVal === 100) {
+                            statusBg = "bg-emerald-50 text-emerald-700 border border-emerald-200";
+                            dotColor = "bg-emerald-500";
+                        } else if (pctVal > 0) {
+                            statusBg = "bg-amber-50 text-amber-700 border border-amber-200";
+                            dotColor = "bg-amber-500";
+                        }
+                        
+                        milestonesHTML += `
+                            <div class="flex items-start gap-2.5 bg-white p-3 rounded-xl border border-slate-100 shadow-sm hover:border-slate-200 transition-all group relative">
+                                <span class="w-2 h-2 mt-1.5 rounded-full ${dotColor} shrink-0"></span>
+                                <div class="flex-1 min-w-0 pr-12">
+                                    <p class="text-xs font-bold text-slate-800 leading-tight">${m.milestone}</p>
+                                    <div class="flex items-center gap-2 mt-1 text-[10px] text-slate-500 font-medium">
+                                        <span><i class="fa-regular fa-calendar mr-1"></i>${m.targetDate}</span>
+                                        <span class="px-1.5 py-0.5 ${statusBg} rounded-md font-extrabold text-[9px] uppercase tracking-wider">${pctVal}%</span>
+                                    </div>
+                                </div>
+                                <div class="absolute right-2 top-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onclick="startEditMilestone('${m.id}')" class="text-slate-400 hover:text-indigo-600 p-1 rounded hover:bg-slate-50 transition-all" title="Edit Milestone">
+                                        <i class="fa-solid fa-pen text-[10px]"></i>
+                                    </button>
+                                    <button onclick="deleteMilestone('${m.id}')" class="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-slate-50 transition-all" title="Delete Milestone">
+                                        <i class="fa-solid fa-trash text-[10px]"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                milestonesHTML += `</div>`;
+            } else if (!isAddingMilestone) {
+                milestonesHTML += `
+                    <div class="text-center py-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-calendar-check text-slate-300 text-xl mb-1.5 block"></i>
+                        <p class="text-[10px] text-slate-500 font-medium">No milestones found in Strategic Initiative.csv for this strategy.</p>
+                    </div>
+                `;
+            }
+
+            milestonesHTML += `</div>`;
+
+            const content = document.getElementById('rightDetailContent');
+            if (content) {
+                const roundedValue = Math.round(node.value);
+                const formattedVal = (roundedValue >= 0 ? '+' : '') + roundedValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+                content.innerHTML = `
+                    <!-- Header Details -->
+                    <div class="space-y-1">
+                        <h2 class="text-lg font-black text-slate-900 leading-tight">
+                            ${getNodeEmoji(node.name)} ${node.name}
+                        </h2>
+                    </div>
+
+                    <!-- Financial Quick-grid on the same level -->
+                    <div class="grid grid-cols-3 gap-3 bg-slate-50/75 p-4 rounded-xl border border-slate-100 items-center text-center">
+                        <div>
+                            <div class="text-base font-black ${roundedValue >= 0 ? 'text-emerald-600' : 'text-rose-600'}" title="Contribution Value">
+                                ${formattedVal}
+                            </div>
+                        </div>
+                        <div class="border-l border-slate-200">
+                            <div class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Real Value</div>
+                            <div class="text-base font-black text-slate-800">
+                                ${node.real || '-'}
+                            </div>
+                        </div>
+                        <div class="border-l border-slate-200">
+                            <div class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">RKAP Value</div>
+                            <div class="text-base font-black text-slate-800">
+                                ${node.rkap || '-'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Outcome Card Block with Inline Editing support -->
+                    <div class="p-5 rounded-2xl border border-emerald-100 bg-emerald-50/20 space-y-3 relative overflow-hidden">
+                        <div class="absolute -right-3 -top-3 text-emerald-200/40 text-5xl font-black select-none pointer-events-none">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-sm">
+                                    <i class="fa-solid fa-bullseye text-xs"></i>
+                                </div>
+                                <h4 class="text-xs font-extrabold text-emerald-950 uppercase tracking-wider">Outcome / Target Impact</h4>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button id="editOutcomeBtn" onclick="toggleEditOutcome('${node.id}')" class="text-emerald-600 hover:text-emerald-800 text-[11px] font-bold transition-all flex items-center gap-1 bg-emerald-100/60 hover:bg-emerald-100 px-2.5 py-1 rounded-lg">
+                                    <i class="fa-solid fa-pen text-[9px]"></i> Edit
+                                </button>
+                            </div>
+                        </div>
+                        <div id="outcomeTextContainer">
+                            <p id="outcomeTextDisplay" class="text-xs text-emerald-900/90 leading-relaxed font-semibold">
+                                ${finalOutcome}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Strategy Card Block with Inline Editing support -->
+                    <div class="p-5 rounded-2xl border border-indigo-100 bg-indigo-50/25 space-y-3 relative overflow-hidden">
+                        <div class="absolute -right-3 -top-3 text-indigo-200/30 text-5xl font-black select-none pointer-events-none">
+                            <i class="fa-solid fa-chess-knight"></i>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                                    <i class="fa-solid fa-chess-knight text-xs"></i>
+                                </div>
+                                <h4 class="text-xs font-extrabold text-indigo-950 uppercase tracking-wider">Execution Strategy</h4>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button id="editStrategyBtn" onclick="toggleEditStrategy('${node.id}')" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold transition-all flex items-center gap-1 bg-indigo-100/60 hover:bg-indigo-100 px-2.5 py-1 rounded-lg">
+                                    <i class="fa-solid fa-pen text-[9px]"></i> Edit
+                                </button>
+                            </div>
+                        </div>
+                        <div id="strategyTextContainer">
+                            <p id="strategyTextDisplay" class="text-xs text-indigo-900/90 leading-relaxed font-semibold">
+                                ${finalStrategy}
+                            </p>
+                        </div>
+
+                        <!-- Milestones integrated inside execution strategy -->
+                        ${milestonesHTML}
+                    </div>
+                `;
+            }
+
+            const pane = document.getElementById('rightDetailPane');
+            if (pane) {
+                pane.classList.remove('translate-x-full');
+            }
+        }
+
+        function closeRightDetailPane() {
+            const pane = document.getElementById('rightDetailPane');
+            if (pane) {
+                pane.classList.add('translate-x-full');
+            }
+        }
+
+        function toggleEditOutcome(nodeId) {
+            const container = document.getElementById('outcomeTextContainer');
+            const editBtn = document.getElementById('editOutcomeBtn');
+            const node = nodesMap.get(nodeId);
+            if (!node || !container || !editBtn) return;
+
+            const textarea = container.querySelector('textarea');
+            if (!textarea) {
+                const currentText = node.outcome || "";
+                container.innerHTML = `
+                    <textarea id="outcomeTextarea" class="w-full h-24 p-3 font-semibold text-xs border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none bg-white text-emerald-950 shadow-inner" placeholder="Enter custom outcome or target impact description...">${currentText}</textarea>
+                `;
+                editBtn.innerHTML = `<i class="fa-solid fa-floppy-disk text-[9px]"></i> Save`;
+                editBtn.className = "text-emerald-700 hover:text-emerald-900 text-[11px] font-bold transition-all flex items-center gap-1 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg";
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.id = "cancelOutcomeBtn";
+                cancelBtn.className = "text-slate-500 hover:text-slate-700 text-[11px] font-bold transition-all flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg ml-1";
+                cancelBtn.innerHTML = `<i class="fa-solid fa-ban text-[9px]"></i> Cancel`;
+                cancelBtn.onclick = () => {
+                    showNodeDetails(nodeId); 
+                };
+                editBtn.parentNode.appendChild(cancelBtn);
+            } else {
+                const newOutcome = document.getElementById('outcomeTextarea').value.trim();
+                updateNodeOutcomeInCSV(nodeId, newOutcome);
+                showFeedbackToast("Outcome updated and synchronized back to database!");
+                
+                saveCSVToJupyter(activeCSVText, "Net Income - Copy.csv");
+                showNodeDetails(nodeId); 
+            }
+        }
+
+        function updateNodeOutcomeInCSV(nodeId, newOutcome) {
+            const node = nodesMap.get(nodeId);
+            if (!node) return;
+
+            const path = [];
+            let curr = node;
+            while (curr) {
+                if (curr.id !== "root-origin") {
+                    path.unshift(curr.name);
+                }
+                curr = curr.parent;
+            }
+
+            const lines = activeCSVText.split('\n');
+            if (lines.length < 2) return;
+
+            const fileDelimiter = lines[0].includes(';') ? ';' : ',';
+            const header = parseCSVRow(lines[0], fileDelimiter);
+            const colIndices = {};
+            for (let i = 1; i <= 6; i++) {
+                colIndices[`Level ${i}`] = header.findIndex(h => h.toLowerCase().trim() === `level ${i}`);
+            }
+            const outcomeIdx = header.findIndex(h => h.toLowerCase().trim() === 'outcome');
+            if (outcomeIdx === -1) return;
+
+            let foundRowIndex = -1;
+            for (let r = 1; r < lines.length; r++) {
+                const row = parseCSVRow(lines[r], fileDelimiter);
+                if (row.length === 0) continue;
+
+                let match = true;
+                for (let lvl = 1; lvl <= 6; lvl++) {
+                    const idx = colIndices[`Level ${lvl}`];
+                    const expectedName = path[lvl - 1] || "";
+                    const rowValue = (idx !== -1 && row[idx]) ? row[idx].trim() : "";
+                    if (rowValue !== expectedName) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    foundRowIndex = r;
+                    break;
+                }
+            }
+
+            if (foundRowIndex !== -1) {
+                const row = parseCSVRow(lines[foundRowIndex], fileDelimiter);
+                while (row.length <= outcomeIdx) {
+                    row.push("");
+                }
+                row[outcomeIdx] = newOutcome;
+                
+                // Strictly use COMMA (,) as target delimiter for writing back as requested!
+                const targetDelimiter = ',';
+                
+                lines[foundRowIndex] = row.map(cell => {
+                    if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                        return `"${cell.replace(/"/g, '""')}"`;
+                    }
+                    return cell;
+                }).join(targetDelimiter);
+
+                // Re-serialize other lines with targetDelimiter (',') to ensure full file consistency!
+                activeCSVText = lines.map((lineStr, idx) => {
+                    if (idx === foundRowIndex) return lines[foundRowIndex];
+                    const parsed = parseCSVRow(lineStr, fileDelimiter);
+                    return parsed.map(cell => {
+                        if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                            return `"${cell.replace(/"/g, '""')}"`;
+                        }
+                        return cell;
+                    }).join(targetDelimiter);
+                }).join('\n');
+                
+                const csvEditor = document.getElementById('csvEditor');
+                if (csvEditor && activeDrawerTab === 'financial') {
+                    csvEditor.value = activeCSVText;
+                }
+                parseAndRender(activeCSVText, true);
+            } else {
+                node.outcome = newOutcome;
+            }
+        }
+
+        function toggleEditStrategy(nodeId) {
+            const container = document.getElementById('strategyTextContainer');
+            const editBtn = document.getElementById('editStrategyBtn');
+            const node = nodesMap.get(nodeId);
+            if (!node || !container || !editBtn) return;
+
+            const textarea = container.querySelector('textarea');
+            if (!textarea) {
+                const currentText = node.strategy || "";
+                container.innerHTML = `
+                    <textarea id="strategyTextarea" class="w-full h-24 p-3 font-semibold text-xs border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none bg-white text-indigo-950 shadow-inner" placeholder="Enter custom execution strategy...">${currentText}</textarea>
+                `;
+                editBtn.innerHTML = `<i class="fa-solid fa-floppy-disk text-[9px]"></i> Save`;
+                editBtn.className = "text-emerald-700 hover:text-emerald-900 text-[11px] font-bold transition-all flex items-center gap-1 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg";
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.id = "cancelStrategyBtn";
+                cancelBtn.className = "text-slate-500 hover:text-slate-700 text-[11px] font-bold transition-all flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg ml-1";
+                cancelBtn.innerHTML = `<i class="fa-solid fa-ban text-[9px]"></i> Cancel`;
+                cancelBtn.onclick = () => {
+                    showNodeDetails(nodeId); 
+                };
+                editBtn.parentNode.appendChild(cancelBtn);
+            } else {
+                const newStrategy = document.getElementById('strategyTextarea').value.trim();
+                updateNodeStrategyInCSV(nodeId, newStrategy);
+                showFeedbackToast("Strategy updated and synchronized back to database!");
+                
+                saveCSVToJupyter(activeCSVText, "Net Income - Copy.csv");
+                showNodeDetails(nodeId); 
+            }
+        }
+
+        function updateNodeStrategyInCSV(nodeId, newStrategy) {
+            const node = nodesMap.get(nodeId);
+            if (!node) return;
+
+            const path = [];
+            let curr = node;
+            while (curr) {
+                if (curr.id !== "root-origin") {
+                    path.unshift(curr.name);
+                }
+                curr = curr.parent;
+            }
+
+            const lines = activeCSVText.split('\n');
+            if (lines.length < 2) return;
+
+            const fileDelimiter = lines[0].includes(';') ? ';' : ',';
+            const header = parseCSVRow(lines[0], fileDelimiter);
+            const colIndices = {};
+            for (let i = 1; i <= 6; i++) {
+                colIndices[`Level ${i}`] = header.findIndex(h => h.toLowerCase().trim() === `level ${i}`);
+            }
+            const strategyIdx = header.findIndex(h => h.toLowerCase().trim() === 'strategy');
+            if (strategyIdx === -1) return;
+
+            let foundRowIndex = -1;
+            for (let r = 1; r < lines.length; r++) {
+                const row = parseCSVRow(lines[r], fileDelimiter);
+                if (row.length === 0) continue;
+
+                let match = true;
+                for (let lvl = 1; lvl <= 6; lvl++) {
+                    const idx = colIndices[`Level ${lvl}`];
+                    const expectedName = path[lvl - 1] || "";
+                    const rowValue = (idx !== -1 && row[idx]) ? row[idx].trim() : "";
+                    if (rowValue !== expectedName) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    foundRowIndex = r;
+                    break;
+                }
+            }
+
+            if (foundRowIndex !== -1) {
+                const row = parseCSVRow(lines[foundRowIndex], fileDelimiter);
+                while (row.length <= strategyIdx) {
+                    row.push("");
+                }
+                row[strategyIdx] = newStrategy;
+                
+                // Strictly use COMMA (,) as target delimiter for writing back as requested!
+                const targetDelimiter = ',';
+                
+                lines[foundRowIndex] = row.map(cell => {
+                    if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                        return `"${cell.replace(/"/g, '""')}"`;
+                    }
+                    return cell;
+                }).join(targetDelimiter);
+
+                // Re-serialize other lines with targetDelimiter (',') to ensure full file consistency!
+                activeCSVText = lines.map((lineStr, idx) => {
+                    if (idx === foundRowIndex) return lines[foundRowIndex];
+                    const parsed = parseCSVRow(lineStr, fileDelimiter);
+                    return parsed.map(cell => {
+                        if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                            return `"${cell.replace(/"/g, '""')}"`;
+                        }
+                        return cell;
+                    }).join(targetDelimiter);
+                }).join('\n');
+                
+                const csvEditor = document.getElementById('csvEditor');
+                if (csvEditor && activeDrawerTab === 'financial') {
+                    csvEditor.value = activeCSVText;
+                }
+                parseAndRender(activeCSVText, true);
+            } else {
+                node.strategy = newStrategy;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -76,25 +76,39 @@ try:
     full_html = html_content + injection_script
     components.html(full_html, height=900, scrolling=True)
 
-    # 5. Bi-directional Save Listener
-    # This script safely monitors the inner state of the HTML page elements and updates Python variables
-    js_code = """
-        (function() {
-            const csvEditor = window.parent.document.querySelector('iframe').contentWindow.document.getElementById('csvEditor');
-            return csvEditor ? csvEditor.value : null;
-        })()
-    """
+    st.divider()
+
+    # 5. Gunakan Form Pengeditan Resmi dari Sisi Streamlit (Aman & Permanen)
+    st.subheader("📝 Edit & Simpan Database Secara Permanen")
     
-    # Extract the active text inside the modal editor dynamically
-    updated_csv_content = st_javascript(js_code)
-    
-    # 6. Check if changes happened and save to file
-    if updated_csv_content and updated_csv_content != finance_csv_data:
-        # Save back to disk automatically when changes are pushed in the UI
-        with open(csv_finance_path, "w", encoding="utf-8") as f:
-            f.write(updated_csv_content)
-        st.success("Changes permanently saved to Net Income - Copy.csv!")
-        st.rerun()
+    with st.expander("Buka Panel Editor CSV"):
+        tab1, tab2 = st.tabs(["Net Income - Copy.csv", "Strategic Initiative.csv"])
+        
+        with tab1:
+            updated_finance = st.text_area(
+                "Active Financial Database (Net Income - Copy.csv)", 
+                value=finance_csv_data, 
+                height=300, 
+                key="finance_editor_area"
+            )
+            if st.button("Simpan Perubahan Net Income", type="primary"):
+                with open(csv_finance_path, "w", encoding="utf-8") as f:
+                    f.write(updated_finance)
+                st.success("✅ Perubahan pada Net Income - Copy.csv berhasil disimpan!")
+                st.rerun()
+                
+        with tab2:
+            updated_initiative = st.text_area(
+                "Active Strategic Initiative Database (Strategic Initiative.csv)", 
+                value=initiative_csv_data, 
+                height=300, 
+                key="initiative_editor_area"
+            )
+            if st.button("Simpan Perubahan Strategic Initiative", type="primary"):
+                with open(csv_initiative_path, "w", encoding="utf-8") as f:
+                    f.write(updated_initiative)
+                st.success("✅ Perubahan pada Strategic Initiative.csv berhasil disimpan!")
+                st.rerun()
 
 except FileNotFoundError as e:
     st.error(f"Missing base HTML file error: {e}. Please ensure '{html_file_path}' is pushed to GitHub.")
