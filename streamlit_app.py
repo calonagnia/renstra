@@ -2,7 +2,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import base64
-import json
 
 # Set page config to wide layout
 st.set_page_config(layout="wide", page_title="Financial Tree Explorer")
@@ -12,16 +11,12 @@ html_file_path = "financial_contribution_explorer (1).html"
 csv_finance_path = "Net Income - Copy.csv"
 csv_initiative_path = "Strategic Initiative.csv"
 
-# --- 1. MENANGKAP PERUBAHAN DARI IFRAME VIA SESSION STATE ---
-# Inisialisasi session state untuk menampung data sementara
-if "new_csv_data" not in st.session_state:
-    st.session_state.new_csv_data = None
-
-# --- 2. MEMBACA FILE DATABASE TERLEBIH DAHULU ---
 try:
+    # 1. Membaca file HTML Utama
     with open(html_file_path, "r", encoding="utf-8") as f:
         html_content = f.read()
 
+    # 2. Membaca database lokal menggunakan Python
     finance_csv_data = ""
     try:
         with open(csv_finance_path, "r", encoding="utf-8") as f:
@@ -36,29 +31,9 @@ try:
     except Exception:
         pass
 
-    # --- 3. INJEKSI JAVASCRIPT UNTUK POSTMESSAGE BI-DIRECTIONAL ---
-    # Kita menggunakan window.parent.parent.postMessage agar bisa menembus sandbox iframe ganda Streamlit
+    # 3. Injeksi script layout visualisasi data D3
     injection_script = f"""
     <script>
-    function saveCSVToJupyter(csvContent, filename = "Net Income - Copy.csv") {{
-        if (!csvContent) return;
-        
-        // Kirim data ke Python melalui mekanisme postMessage
-        const messagePayload = {{
-            type: "SAVE_CSV",
-            filename: filename,
-            data: csvContent
-        }};
-        
-        // Menembus nesting iframe Streamlit
-        if (window.parent) {{
-            window.parent.postMessage(messagePayload, "*");
-        }}
-        if (window.parent.parent) {{
-            window.parent.parent.postMessage(messagePayload, "*");
-        }}
-    }}
-
     window.onload = async function() {{
         let loadedCSV = DEFAULT_CSV;
         let loadedInitiatives = DEFAULT_INITIATIVE_CSV;
@@ -98,89 +73,76 @@ try:
     </script>
     """
 
-    # Gabungkan file HTML asli dan script injeksi
     full_html = html_content + injection_script
-    
-    # Render Canvas interaktif
     components.html(full_html, height=900, scrolling=True)
-
-    # --- 4. LISTENER RECEIVER UNTUK MENERIMA POSTMESSAGE ---
-    # Python Streamlit membaca message event yang dikirimkan oleh iframe
-    receiver_js = """
-    <script>
-    window.addEventListener('message', function(event) {
-        if (event.data && event.data.type === "SAVE_CSV") {
-            // Buat input tersembunyi di DOM Streamlit untuk mengirimkan data ke Python
-            const streamlitDoc = window.parent.document;
-            const textAreas = streamlitDoc.querySelectorAll('textarea');
-            if (textAreas.length > 0) {
-                // Set data ke text area agar Streamlit mendeteksinya
-                textAreas[0].value = event.data.data;
-                textAreas[0].dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        }
-    });
-    </script>
-    """
-    components.html(receiver_js, height=0)
 
     st.divider()
 
-    # Manual Fallback Editor Panels (juga berfungsi sebagai jembatan penangkap data)
+    # 4. Panel Sinkronisasi Database (Paling Stabil & Aman dari CORS)
     st.subheader("📝 Edit & Simpan Database Secara Permanen")
-    with st.expander("Buka Panel Editor CSV", expanded=False):
-        tab1, tab2 = st.tabs(["Net Income Database", "Strategic Initiative Database"])
-        
-        with tab1:
-            updated_finance = st.text_area(
-                "Active Financial Database (Net Income - Copy.csv)",
-                value=finance_csv_data,
-                height=300,
-                key="finance_editor_area"
-            )
+    
+    tab1, tab2 = st.tabs(["Net Income Database", "Strategic Initiative Database"])
+    
+    with tab1:
+        updated_finance = st.text_area(
+            "Active Financial Database (Net Income - Copy.csv)",
+            value=finance_csv_data,
+            height=300,
+            key="finance_editor_area"
+        )
+        if st.button("Simpan Perubahan Net Income", type="primary"):
+            # Tulis data ke penyimpanan server lokal terlebih dahulu
+            with open(csv_finance_path, "w", encoding="utf-8") as f:
+                f.write(updated_finance)
             
-            # Jika user menekan tombol simpan atau data terdeteksi berubah dari iframe:
-            if st.button("Simpan Perubahan Net Income", type="primary") or (updated_finance != finance_csv_data and updated_finance != ""):
-                with open(csv_finance_path, "w", encoding="utf-8") as f:
-                    f.write(updated_finance)
+            # Pengecekan apakah Token GitHub sudah diatur di Secrets Streamlit Cloud
+            if "GITHUB_TOKEN" in st.secrets:
+                REPO = "calonagnia/renstra"
+                BRANCH = "main"
+                API_URL = f"https://api.github.com/repos/{REPO}/contents/{csv_finance_path}"
+                headers = {
+                    "Authorization": f"token {st.secrets['GITHUB_TOKEN']}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
                 
-                # Push langsung ke repositori GitHub jika GITHUB_TOKEN diatur
-                if "GITHUB_TOKEN" in st.secrets:
-                    REPO = "calonagnia/renstra"
-                    BRANCH = "main"
-                    API_URL = f"https://api.github.com/repos/{REPO}/contents/{csv_finance_path}"
-                    headers = {
-                        "Authorization": f"token {st.secrets['GITHUB_TOKEN']}",
-                        "Accept": "application/vnd.github.v3+json"
+                # Mengambil SHA hash file terbaru agar GitHub mengizinkan modifikasi overwrite
+                get_resp = requests.get(API_URL, headers=headers, params={"ref": BRANCH})
+                if get_resp.status_code == 200:
+                    current_sha = get_resp.json().get("sha")
+                    
+                    # Konversi string konten baru ke format base64
+                    encoded_content = base64.b64encode(updated_finance.encode("utf-8")).decode("utf-8")
+                    payload = {
+                        "message": "Update database dari panel admin Streamlit",
+                        "content": encoded_content,
+                        "sha": current_sha,
+                        "branch": BRANCH
                     }
                     
-                    get_resp = requests.get(API_URL, headers=headers, params={"ref": BRANCH})
-                    if get_resp.status_code == 200:
-                        current_sha = get_resp.json().get("sha")
-                        encoded_content = base64.b64encode(updated_finance.encode("utf-8")).decode("utf-8")
-                        payload = {
-                            "message": "Update Outcome & Strategy dari UI Tree",
-                            "content": encoded_content,
-                            "sha": current_sha,
-                            "branch": BRANCH
-                        }
-                        requests.put(API_URL, headers=headers, json=payload)
+                    put_resp = requests.put(API_URL, headers=headers, json=payload)
+                    if put_resp.status_code == 200:
+                        st.toast("🚀 Perubahan berhasil dikomit dan dipush ke GitHub!", icon="🐙")
+                    else:
+                        st.error(f"Gagal push ke GitHub: {put_resp.text}")
+                else:
+                    st.error("Gagal membaca metadata file dari API GitHub. Periksa nama repositori Anda.")
+            else:
+                st.warning("⚠️ Perubahan disimpan lokal. Atur GITHUB_TOKEN di Streamlit Secrets untuk sinkronisasi otomatis ke GitHub.")
                 
-                st.success("✅ Perubahan database berhasil disimpan secara permanen!")
-                st.rerun()
+            st.rerun()
 
-        with tab2:
-            updated_initiative = st.text_area(
-                "Active Strategic Initiative Database (Strategic Initiative.csv)",
-                value=initiative_csv_data,
-                height=300,
-                key="initiative_editor_area"
-            )
-            if st.button("Simpan Perubahan Strategic Initiative", type="primary"):
-                with open(csv_initiative_path, "w", encoding="utf-8") as f:
-                    f.write(updated_initiative)
-                st.success("✅ Perubahan pada Strategic Initiative.csv berhasil disimpan!")
-                st.rerun()
+    with tab2:
+        updated_initiative = st.text_area(
+            "Active Strategic Initiative Database (Strategic Initiative.csv)",
+            value=initiative_csv_data,
+            height=300,
+            key="initiative_editor_area"
+        )
+        if st.button("Simpan Perubahan Strategic Initiative", type="primary"):
+            with open(csv_initiative_path, "w", encoding="utf-8") as f:
+                f.write(updated_initiative)
+            st.success("✅ Perubahan pada Strategic Initiative.csv berhasil disimpan!")
+            st.rerun()
 
 except FileNotFoundError as e:
     st.error(f"Missing base HTML file error: {e}. Please ensure '{html_file_path}' is pushed to GitHub.")
