@@ -6,7 +6,7 @@ st.set_page_config(layout="wide", page_title="Financial Tree Explorer")
 st.title("Project Financial Tree Explorer")
 
 # Define file paths
-html_file_path = "financial_tree_explorer (6).html"
+html_file_path = "financial_contribution_explorer (1).html"
 csv_finance_path = "Net Income - Copy.csv"
 csv_initiative_path = "Strategic Initiative.csv"
 
