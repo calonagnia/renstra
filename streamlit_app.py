@@ -72,7 +72,7 @@ try:
     </script>
     """
 
-    # 4. Combine and render the final sandboxed app
+   # 4. Combine and render the final sandboxed app
     full_html = html_content + injection_script
     components.html(full_html, height=900, scrolling=True)
 
