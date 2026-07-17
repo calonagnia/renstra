@@ -32,13 +32,15 @@ try:
 
     # 3. Inject script to override the layout & hide Level 0 (depth 0)
  # 3. Inject script to override the layout & hide Level 0 (depth 0)
+# 3. Inject script to completely hide the L0 root node and its connecting lines
     injection_script = f"""
 <style>
-/* Aggressively hide anything associated with Depth 0 */
-g.node-depth-0,
-g.node:nth-child(1), /* Fallback selector if dynamic classes aren't bound */
-path.link-source-0,
-.node[data-depth="0"] {{
+/* CSS styles targeting various potential selectors for the L0 card */
+.node-depth-0, 
+[data-id="Total Financial Scope"],
+g:has(text:contains("Total Financial Scope")),
+foreignObject:has(h5:contains("Total Financial Scope")),
+div:has(h5:contains("Total Financial Scope")) {{
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -76,20 +78,34 @@ window.onload = async function() {{
     collapseAll();
     resetView();
 
-    // Direct DOM Interceptor to flag depth-0 elements as soon as they render
-    const runHider = () => {{
-        // Find node elements and check their bound D3 data
-        d3.selectAll('g.node, g.node-container, .node').each(function(d) {{
+    // Loop to continuously scan the DOM and hide L0 elements
+    const purgeL0 = () => {{
+        // 1. Target by checking bound d3 data depth
+        d3.selectAll('g, .node, .node-container, foreignObject').each(function(d) {{
             if (d && d.depth === 0) {{
-                d3.select(this).classed('node-depth-0', true);
                 d3.select(this).style('display', 'none').style('visibility', 'hidden');
             }}
         }});
 
-        // Find links originating from depth 0
-        d3.selectAll('path.link, .link').each(function(d) {{
+        // 2. Target by scanning DOM text content (Total Financial Scope)
+        document.querySelectorAll('foreignObject, g, div').forEach(el => {{
+            if (el.textContent && el.textContent.includes('Total Financial Scope')) {{
+                // Hide the container element
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+                
+                // If it's inside a foreignObject, hide the parent group element
+                const parentGroup = el.closest('g');
+                if (parentGroup) {{
+                    parentGroup.style.setProperty('display', 'none', 'important');
+                    parentGroup.style.setProperty('visibility', 'hidden', 'important');
+                }}
+            }}
+        }});
+
+        // 3. Hide all SVG links connecting from depth 0 (origin)
+        d3.selectAll('path.link, path, .link').each(function(d) {{
             if (d && d.source && d.source.depth === 0) {{
-                d3.select(this).classed('link-source-0', true);
                 d3.select(this).style('display', 'none').style('visibility', 'hidden');
             }}
         }});
@@ -100,20 +116,18 @@ window.onload = async function() {{
     if (originalUpdate) {{
         update = function(source) {{
             originalUpdate(source);
-            runHider();
+            purgeL0();
         }};
-        // Trigger now
         if (typeof root !== 'undefined') {{
             update(root);
         }}
     }}
-    
-    // Fallback interval just in case D3 transitions run asynchronously
-    setInterval(runHider, 300);
+
+    // Fallback interval to handle dynamic transitions, zooms, and node expansions
+    setInterval(purgeL0, 100);
 }};
 </script>
 """
-
     # 4. Combine and render the final sandboxed app
     full_html = html_content + injection_script
     components.html(full_html, height=900, scrolling=True)
